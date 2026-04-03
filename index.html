@@ -649,8 +649,6 @@ function App() {
   var [lastSessionData, setLastSessionData] = useState({});
   var [showSettings, setShowSettings] = useState(false);
   var [loading, setLoading] = useState(true);
-  var today = todayISO();
-  var wk = getWeekKey(today);
 
   // ── DATE CHANGE DETECTION ─────────────────────────────────
   var loadedDate = useRef(todayISO());
@@ -672,7 +670,7 @@ function App() {
         try { var co = localStorage.getItem("hh_cal_overrides"); if (co) setCalOverrides(JSON.parse(co)); } catch(e) {}
 
         // Fetch today's data from sheet
-        var todayData = await sheetsGet("getToday", { date: today });
+        var todayData = await sheetsGet("getToday", { date: todayISO() });
         if (todayData && todayData.data) {
           // Reconstruct todayLogs from meals
           if (todayData.data.meals && todayData.data.meals.length) {
@@ -694,12 +692,12 @@ function App() {
           }
           // Get burn log for today
           if (todayData.data.daily && todayData.data.daily["Calories Burned (raw)"]) {
-            setBurnLogs(function(prev) { var n = Object.assign({}, prev); n[today] = parseFloat(todayData.data.daily["Calories Burned (raw)"]); return n; });
+          setBurnLogs(function(prev) { var n = Object.assign({}, prev); n[todayISO()] = parseFloat(todayData.data.daily["Calories Burned (raw)"]); return n; });
           }
         }
 
         // Fetch current week data
-        var weekData = await sheetsGet("getWeek", { weekKey: wk });
+        var weekData = await sheetsGet("getWeek", { weekKey: getWeekKey(todayISO()) });
         if (weekData && weekData.data) {
           if (weekData.data.sessions) setWeekSessions(weekData.data.sessions);
           if (weekData.data.weekly) setWeeklyRow(weekData.data.weekly);
@@ -731,9 +729,9 @@ function App() {
     var newLogs = todayLogs.concat([entry]);
     setTodayLogs(newLogs);
     // Write to sheet
-    var isTraining = weekSessions.some(function(s) { return s["Date"] === today; });
-    var calGoal = calOverrides[today] || (isTraining ? config.nutrition.caloriesTraining : config.nutrition.caloriesRest);
-    sheetsWrite("logMeals", {
+   var isTraining = weekSessions.some(function(s) { return s["Date"] === todayISO(); });
+   var calGoal = calOverrides[todayISO()] || (isTraining ? config.nutrition.caloriesTraining : config.nutrition.caloriesRest); 
+   sheetsWrite("logMeals", {
       date: today, calGoal: calGoal, proteinGoal: config.nutrition.protein,
       meals: newLogs.map(function(e) { return { time: new Date().toLocaleTimeString("en", { hour: "2-digit", minute: "2-digit" }), meal: e.meal, food: e.food, cal: e.cal, protein: e.protein, carbs: e.carbs, fat: e.fat, eatOut: e.eatOut ? "Eat-out" : "Home", restaurantType: e.restaurantType || "", description: e.description || "" }; })
     }).catch(function() {});
@@ -743,9 +741,8 @@ function App() {
   function handleDeleteMeal(id) {
     var newLogs = todayLogs.filter(function(e) { return e.id !== id; });
     setTodayLogs(newLogs);
-    var isTraining = weekSessions.some(function(s) { return s["Date"] === today; });
-    var calGoal = calOverrides[today] || (isTraining ? config.nutrition.caloriesTraining : config.nutrition.caloriesRest);
-    sheetsWrite("logMeals", {
+    var isTraining = weekSessions.some(function(s) { return s["Date"] === todayISO(); });
+    var calGoal = calOverrides[todayISO()] || (isTraining ? config.nutrition.caloriesTraining : config.nutrition.caloriesRest);    sheetsWrite("logMeals", {
       date: today, calGoal: calGoal, proteinGoal: config.nutrition.protein,
       meals: newLogs.map(function(e) { return { time: "", meal: e.meal, food: e.food, cal: e.cal, protein: e.protein, carbs: e.carbs, fat: e.fat, eatOut: e.eatOut ? "Eat-out" : "Home", restaurantType: e.restaurantType || "", description: e.description || "" }; })
     }).catch(function() {});
@@ -792,8 +789,8 @@ function App() {
     }
   }
 
-  var isTrainingDay = weekSessions.some(function(s) { return s["Date"] === today || s.dateISO === today; });
-  var calOverrideToday = calOverrides[today] || null;
+  var isTrainingDay = weekSessions.some(function(s) { return s["Date"] === todayISO() || s.dateISO === todayISO(); });
+  var calOverrideToday = calOverrides[todayISO()] || null;
   var calGoal = calOverrideToday || (isTrainingDay ? config.nutrition.caloriesTraining : config.nutrition.caloriesRest);
   var carbGoal = isTrainingDay ? config.nutrition.carbsTraining : config.nutrition.carbsRest;
   var fatGoal = isTrainingDay ? config.nutrition.fatTraining : config.nutrition.fatRest;
