@@ -19,16 +19,54 @@
 <script type="text/babel">
 const { useState, useEffect, useRef, memo, useCallback } = React;
 
-const PROXY_URL = "https://heavy-hybrid.netlify.app/.netlify/functions/proxy";
-const SHEETS_ENDPOINT = "";
+const PROXY = "https://heavy-hybrid.netlify.app/.netlify/functions/proxy";
 
-// ── STORAGE (localStorage) ────────────────────────────────────
-const storage = {
-  get: function(key) { try { var v = localStorage.getItem(key); return v ? { value: v } : null; } catch(e) { return null; } },
-  set: function(key, value) { try { localStorage.setItem(key, value); return true; } catch(e) { return false; } },
-  remove: function(key) { try { localStorage.removeItem(key); } catch(e) {} },
-  list: function(prefix) { try { var keys = []; for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (k && k.startsWith(prefix)) keys.push(k); } return { keys: keys }; } catch(e) { return { keys: [] }; } }
-};
+// ── API HELPERS ───────────────────────────────────────────────
+async function sheetsGet(action, extraParams) {
+  var params = Object.assign({ target: "sheets", action: action }, extraParams || {});
+  var qs = Object.keys(params).map(function(k) { return k + "=" + encodeURIComponent(params[k]); }).join("&");
+  var res = await fetch(PROXY + "?" + qs);
+  var data = await res.json();
+  return data;
+}
+async function sheetsWrite(action, payload) {
+  var res = await fetch(PROXY + "?target=sheets", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: action, data: payload })
+  });
+  return res.json();
+}
+async function estimateFood(text) {
+  var res = await fetch(PROXY, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-20250514", max_tokens: 300, temperature: 0,
+      system: "You are a nutrition expert specialising in Italian and Mediterranean cuisine. Estimate calories and macros for a single standard serving of the described meal, as typically prepared in an Italian home. Be consistent — the same description should always return the same values. Reply ONLY with raw JSON: {\"name\":\"<english name>\",\"cal\":<int>,\"protein\":<int>,\"carbs\":<int>,\"fat\":<int>,\"note\":\"<one sentence in user language>\"}",
+      messages: [{ role: "user", content: text }]
+    })
+  });
+  if (!res.ok) { var err = await res.json().catch(function() { return {}; }); throw new Error((err.error && err.error.message) || "HTTP " + res.status); }
+  var data = await res.json();
+  var block = data.content.find(function(b) { return b.type === "text"; });
+  return JSON.parse((block ? block.text : "").replace(/```json|```/g, "").trim());
+}
+async function generateWeeklyReport(weekData, config) {
+  var res = await fetch(PROXY, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-20250514", max_tokens: 500, temperature: 0,
+      system: "You are an analytical performance coach. Analyse the weekly nutrition and training data provided and return a concise structured report. Be direct, data-driven, no flattery. Cover: avg daily calories vs target, protein compliance, energy balance trend, eat-out vs home meal breakdown, training sessions completed, one specific actionable recommendation for next week. Keep it under 200 words.",
+      messages: [{ role: "user", content: "Weekly data: " + JSON.stringify(weekData) + "\nTargets: calories training=" + config.nutrition.caloriesTraining + " rest=" + config.nutrition.caloriesRest + " protein=" + config.nutrition.protein + "g phase=" + config.goals.phase }]
+    })
+  });
+  if (!res.ok) throw new Error("HTTP " + res.status);
+  var data = await res.json();
+  var block = data.content.find(function(b) { return b.type === "text"; });
+  return block ? block.text : "";
+}
 
 // ── UTILS ─────────────────────────────────────────────────────
 function todayISO() { return new Date().toISOString().slice(0, 10); }
@@ -68,41 +106,6 @@ function rirOptStyle(val, active) {
   var t = m[val];
   return { flex: 1, padding: "10px 4px", borderRadius: 8, border: active ? "0.5px solid " + t[1] : "0.5px solid #ccc", background: active ? t[0] : "#fff", textAlign: "center", cursor: "pointer", color: active ? t[2] : "#1a1a1a" };
 }
-async function estimateFood(text) {
-  var res = await fetch(PROXY_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "claude-sonnet-4-20250514", max_tokens: 300, temperature: 0,
-      system: "You are a nutrition expert specialising in Italian and Mediterranean cuisine. Estimate calories and macros for a single standard serving of the described meal, as typically prepared in an Italian home. Be consistent — the same description should always return the same values. Reply ONLY with raw JSON: {\"name\":\"<english name>\",\"cal\":<int>,\"protein\":<int>,\"carbs\":<int>,\"fat\":<int>,\"note\":\"<one sentence in user language>\"}",
-      messages: [{ role: "user", content: text }]
-    })
-  });
-  if (!res.ok) { var err = await res.json().catch(function() { return {}; }); throw new Error((err.error && err.error.message) || "HTTP " + res.status); }
-  var data = await res.json();
-  var block = data.content.find(function(b) { return b.type === "text"; });
-  return JSON.parse((block ? block.text : "").replace(/```json|```/g, "").trim());
-}
-async function generateWeeklyReport(weekData, config) {
-  var res = await fetch(PROXY_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "claude-sonnet-4-20250514", max_tokens: 500, temperature: 0,
-      system: "You are an analytical performance coach. Analyse the weekly nutrition and training data provided and return a concise structured report. Be direct, data-driven, no flattery. Cover: avg daily calories vs target, protein compliance, energy balance trend, eat-out vs home meal breakdown, training sessions completed, one specific actionable recommendation for next week. Keep it under 200 words.",
-      messages: [{ role: "user", content: "Weekly data: " + JSON.stringify(weekData) + "\nTargets: calories training=" + config.nutrition.caloriesTraining + " rest=" + config.nutrition.caloriesRest + " protein=" + config.nutrition.protein + "g phase=" + config.goals.phase }]
-    })
-  });
-  if (!res.ok) throw new Error("HTTP " + res.status);
-  var data = await res.json();
-  var block = data.content.find(function(b) { return b.type === "text"; });
-  return block ? block.text : "";
-}
-async function sheetsPost(endpoint, secret, action, data) {
-  var res = await fetch(endpoint, { method: "POST", body: JSON.stringify({ secret: secret, action: action, data: data }) });
-  if (!res.ok) throw new Error("HTTP " + res.status);
-  return res.json();
-}
 
 var MEALS = ["Breakfast", "Lunch", "Dinner", "Snack"];
 var RIR_MAP = { 4: "Cruise", 3: "Comfortable", 2: "Edge", 1: "Limit" };
@@ -111,8 +114,7 @@ var DEFAULT_CONFIG = {
   athlete: { name: "Heavy Hybrid", weight: 83.5, smm: 38.1, bf: 20.7, scanDate: "March 27, 2026" },
   nutrition: { caloriesTraining: 2300, caloriesRest: 1900, protein: 170, carbsTraining: 248, carbsRest: 170, fatTraining: 70, fatRest: 60 },
   training: { hmaxBpm: 192, pixelWatchCorrection: 0.80 },
-  goals: { phase: "cut", targetBf: 14, targetWeight: 77.9 },
-  sheets: { endpoint: "https://script.google.com/macros/s/AKfycbwbpS76OLYcxa9Au6GCwbfTb1klW2qAOA5pZriGEsagwoekR-dQW-7CYtnqbGh0BCQpdA/exec", secret: "heavyhybrid2026" }
+  goals: { phase: "cut", targetBf: 14, targetWeight: 77.9 }
 };
 
 // ── SHARED COMPONENTS ─────────────────────────────────────────
@@ -142,51 +144,48 @@ function SheetStatus({ status }) {
   if (!status) return null;
   return <div style={{ fontSize: 12, padding: "6px 10px", borderRadius: 8, background: status === "ok" ? "#dcfce7" : "#fee2e2", color: status === "ok" ? "#166534" : "#991b1b", marginBottom: 8 }}>{status === "ok" ? "✓ Saved to sheet" : "⚠ Sheet sync failed — use CSV export"}</div>;
 }
+function Loader() {
+  return <div style={{ display: "flex", justifyContent: "center", alignItems: "center", padding: 40 }}><div style={{ width: 24, height: 24, border: "2px solid #ddd", borderTop: "2px solid #1a1a1a", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} /><style>{"@keyframes spin{to{transform:rotate(360deg)}}"}</style></div>;
+}
 
-function calcWeeklySummary(nutLogs, trainHistory, burnLogs, config) {
-  var today = todayISO(); var wk = getWeekKey(today); var start = getWeekStart(today);
-  var days = []; for (var i = 0; i < 7; i++) { var d = new Date(start + "T12:00:00"); d.setDate(d.getDate() + i); days.push(d.toISOString().slice(0, 10)); }
-  var daysLogged = 0, totalCal = 0, totalProtein = 0, totalEatOut = 0, totalHome = 0, totalMeals = 0, daysWithBurn = 0, totalBalance = 0;
-  days.forEach(function(iso) {
-    var nut = nutLogs[iso]; var burn = burnLogs[iso];
-    if (nut && nut.cal > 0) { daysLogged++; totalCal += nut.cal; totalProtein += nut.protein; totalEatOut += nut.eatOut || 0; totalHome += nut.home || 0; totalMeals += nut.mealCount || 0; }
-    if (nut && burn) { daysWithBurn++; totalBalance += nut.cal - Math.round(burn * config.training.pixelWatchCorrection); }
-  });
-  var sessions = trainHistory.filter(function(s) { try { return getWeekKey(s.dateISO || new Date(s.date + " UTC").toISOString().slice(0, 10)) === wk; } catch(e) { return false; } });
-  var totalDifficulty = sessions.reduce(function(a, s) { return a + (s.difficulty || 0); }, 0);
+// ── WEEKLY SUMMARY ────────────────────────────────────────────
+function calcWeeklySummary(todayLogs, weekSessions, burnLogs, config, weeklyRow) {
+  var today = todayISO();
+  var eatOut = todayLogs.filter(function(e) { return e.eatOut; }).length;
+  var totals = todayLogs.reduce(function(a, e) { return { cal: a.cal + (e.cal||0), protein: a.protein + (e.protein||0) }; }, { cal: 0, protein: 0 });
+  var base = weeklyRow || {};
   return {
-    weekKey: wk, daysLogged: daysLogged, avgCal: daysLogged ? Math.round(totalCal / daysLogged) : 0,
-    avgProtein: daysLogged ? Math.round(totalProtein / daysLogged) : 0,
-    proteinCompliance: daysLogged ? Math.round((totalProtein / daysLogged / config.nutrition.protein) * 100) : 0,
-    calCompliance: daysLogged ? Math.round((totalCal / daysLogged / config.nutrition.caloriesTraining) * 100) : 0,
-    eatOutMeals: totalEatOut, homeMeals: totalHome, totalMeals: totalMeals,
-    sessions: sessions.length, totalDifficulty: totalDifficulty,
-    avgBalance: daysWithBurn ? Math.round(totalBalance / daysWithBurn) : null
+    weekKey: getWeekKey(today),
+    daysLogged: (base["Days Logged"] || 0),
+    avgCal: (base["Avg Daily Calories"] || 0),
+    avgProtein: (base["Avg Daily Protein (g)"] || 0),
+    proteinCompliance: (base["Protein Compliance (%)"] || 0),
+    eatOutMeals: (base["Eat-out Meals"] || 0),
+    homeMeals: (base["Home Meals"] || 0),
+    totalMeals: (base["Total Meals"] || 0),
+    sessions: weekSessions.length,
+    totalDifficulty: weekSessions.reduce(function(a, s) { return a + (parseFloat(s["Difficulty (kg)"]) || 0); }, 0),
+    avgBalance: (base["Avg Energy Balance"] || null)
   };
 }
 
 // ── DASHBOARD ─────────────────────────────────────────────────
-function Dashboard({ config, todayNutTotals, calGoal, carbGoal, fatGoal, isTrainingDay, trainHistory, onTabChange, nutLogs, burnLogs }) {
-  var remaining = calGoal - todayNutTotals.cal;
-  var last = trainHistory.length > 0 ? trainHistory[trainHistory.length - 1] : null;
-  var weekly = calcWeeklySummary(nutLogs, trainHistory, burnLogs, config);
-  var [weeklyReport, setWeeklyReport] = useState("");
-  var [reportLoading, setReportLoading] = useState(false);
-  var [reportErr, setReportErr] = useState("");
-  async function handleWeeklyReport() {
-    setReportLoading(true); setReportErr("");
-    try { var r = await generateWeeklyReport(weekly, config); setWeeklyReport(r); } catch(e) { setReportErr("Failed: " + e.message); }
-    setReportLoading(false);
-  }
+function Dashboard({ config, todayLogs, calGoal, carbGoal, fatGoal, isTrainingDay, weekSessions, burnLogs, weeklyRow, onTabChange }) {
+  var totals = todayLogs.reduce(function(a, e) { return { cal: a.cal + (e.cal||0), protein: a.protein + (e.protein||0), carbs: a.carbs + (e.carbs||0), fat: a.fat + (e.fat||0) }; }, { cal: 0, protein: 0, carbs: 0, fat: 0 });
+  var remaining = calGoal - totals.cal;
+  var last = weekSessions.length > 0 ? weekSessions[weekSessions.length - 1] : null;
+  var weekly = calcWeeklySummary(todayLogs, weekSessions, burnLogs, config, weeklyRow);
+  var [weeklyReport, setWeeklyReport] = useState(""); var [reportLoading, setReportLoading] = useState(false); var [reportErr, setReportErr] = useState("");
+  async function handleWeeklyReport() { setReportLoading(true); setReportErr(""); try { var r = await generateWeeklyReport(weekly, config); setWeeklyReport(r); } catch(e) { setReportErr("Failed: " + e.message); } setReportLoading(false); }
   return (
     <div>
       <Card>
         <CardHdr left="Today - Nutrition" right={<span style={{ fontSize: 11, color: "#aaa" }}>{fmtDate(todayISO())}</span>} />
         <div style={{ padding: 14 }}>
-          <MacroBar label="Calories" value={todayNutTotals.cal} goal={calGoal} color="#a5f3fc" />
-          <MacroBar label="Protein" value={todayNutTotals.protein} goal={config.nutrition.protein} color="#86efac" />
-          <MacroBar label="Carbs" value={todayNutTotals.carbs} goal={carbGoal} color="#fde68a" />
-          <MacroBar label="Fat" value={todayNutTotals.fat} goal={fatGoal} color="#fca5a5" />
+          <MacroBar label="Calories" value={totals.cal} goal={calGoal} color="#a5f3fc" />
+          <MacroBar label="Protein" value={totals.protein} goal={config.nutrition.protein} color="#86efac" />
+          <MacroBar label="Carbs" value={totals.carbs} goal={carbGoal} color="#fde68a" />
+          <MacroBar label="Fat" value={totals.fat} goal={fatGoal} color="#fca5a5" />
           <div style={{ marginTop: 10, fontSize: 13, fontWeight: 500, color: remaining >= 0 ? "#166534" : "#dc2626" }}>{remaining >= 0 ? remaining + " kcal remaining" : Math.abs(remaining) + " kcal over goal"}</div>
           <div style={{ fontSize: 11, color: "#aaa", marginTop: 4 }}>{isTrainingDay ? "Training day targets" : "Rest day targets"}</div>
         </div>
@@ -195,14 +194,10 @@ function Dashboard({ config, todayNutTotals, calGoal, carbGoal, fatGoal, isTrain
         <CardHdr left="This week" />
         <div style={{ padding: 14 }}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 12 }}>
-            {[["Sessions", weekly.sessions], ["Meals logged", weekly.totalMeals], ["Eat-out", weekly.eatOutMeals]].map(function(item) {
-              return <div key={item[0]} style={{ background: "#f5f5f3", borderRadius: 8, padding: "8px 10px", textAlign: "center" }}><div style={{ fontSize: 20, fontWeight: 500 }}>{item[1]}</div><div style={{ fontSize: 10, color: "#aaa" }}>{item[0]}</div></div>;
-            })}
+            {[["Sessions", weekly.sessions], ["Meals logged", weekly.totalMeals || todayLogs.length], ["Eat-out", weekly.eatOutMeals]].map(function(item) { return <div key={item[0]} style={{ background: "#f5f5f3", borderRadius: 8, padding: "8px 10px", textAlign: "center" }}><div style={{ fontSize: 20, fontWeight: 500 }}>{item[1]}</div><div style={{ fontSize: 10, color: "#aaa" }}>{item[0]}</div></div>; })}
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
-            {[["Avg calories", weekly.avgCal ? weekly.avgCal + " kcal" : "-"], ["Avg protein", weekly.avgProtein ? weekly.avgProtein + "g" : "-"], ["Protein target", weekly.proteinCompliance ? weekly.proteinCompliance + "%" : "-"], ["Days logged", weekly.daysLogged + " / 7"]].map(function(item) {
-              return <div key={item[0]} style={{ background: "#f5f5f3", borderRadius: 8, padding: "8px 10px", textAlign: "center" }}><div style={{ fontSize: 15, fontWeight: 500 }}>{item[1]}</div><div style={{ fontSize: 10, color: "#aaa" }}>{item[0]}</div></div>;
-            })}
+            {[["Avg calories", weekly.avgCal ? weekly.avgCal + " kcal" : "-"], ["Avg protein", weekly.avgProtein ? weekly.avgProtein + "g" : "-"], ["Protein target", weekly.proteinCompliance ? weekly.proteinCompliance + "%" : "-"], ["Days logged", (weekly.daysLogged || "-") + " / 7"]].map(function(item) { return <div key={item[0]} style={{ background: "#f5f5f3", borderRadius: 8, padding: "8px 10px", textAlign: "center" }}><div style={{ fontSize: 15, fontWeight: 500 }}>{item[1]}</div><div style={{ fontSize: 10, color: "#aaa" }}>{item[0]}</div></div>; })}
           </div>
           {weekly.daysLogged >= 3 ? (
             <div>
@@ -218,23 +213,19 @@ function Dashboard({ config, todayNutTotals, calGoal, carbGoal, fatGoal, isTrain
         <div style={{ padding: 14 }}>
           {last ? (
             <div>
-              <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 4 }}>{last.title}</div>
-              <div style={{ fontSize: 12, color: "#888", marginBottom: 10 }}>{last.date} · HRV {last.hrv} · RHR {last.rhr}{last.duration ? " · " + last.duration + " min" : ""}</div>
+              <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 4 }}>{last["Session Title"] || last.title}</div>
+              <div style={{ fontSize: 12, color: "#888", marginBottom: 10 }}>{last["Date"] || last.date}{last["Actual Duration (min)"] ? " · " + last["Actual Duration (min)"] + " min" : ""}</div>
               <div style={{ display: "flex", gap: 12 }}>
-                {[["difficulty kg", last.difficulty || "-"], ["completion", (last.completion || "-") + "%"], last.duration ? ["duration", last.duration + " min"] : null].filter(Boolean).map(function(item) {
-                  return <div key={item[0]} style={{ flex: 1, background: "#f5f5f3", borderRadius: 8, padding: "8px 10px", textAlign: "center" }}><div style={{ fontSize: 18, fontWeight: 500 }}>{item[1]}</div><div style={{ fontSize: 10, color: "#aaa" }}>{item[0]}</div></div>;
-                })}
+                {[["difficulty kg", last["Difficulty (kg)"] || last.difficulty || "-"], ["completion", (last["Completion (%)"] || last.completion || "-") + "%"]].map(function(item) { return <div key={item[0]} style={{ flex: 1, background: "#f5f5f3", borderRadius: 8, padding: "8px 10px", textAlign: "center" }}><div style={{ fontSize: 18, fontWeight: 500 }}>{item[1]}</div><div style={{ fontSize: 10, color: "#aaa" }}>{item[0]}</div></div>; })}
               </div>
             </div>
-          ) : <div style={{ textAlign: "center", padding: "20px 0" }}><div style={{ fontSize: 13, color: "#aaa", marginBottom: 12 }}>No sessions logged yet.</div><ActionBtn secondary onClick={function() { onTabChange("training"); }}>Go to Training</ActionBtn></div>}
+          ) : <div style={{ textAlign: "center", padding: "20px 0" }}><div style={{ fontSize: 13, color: "#aaa", marginBottom: 12 }}>No sessions this week.</div><ActionBtn secondary onClick={function() { onTabChange("training"); }}>Go to Training</ActionBtn></div>}
         </div>
       </Card>
       <Card>
         <CardHdr left="Body composition" right={<span style={{ fontSize: 11, color: "#aaa" }}>{config.athlete.scanDate}</span>} />
         <div style={{ padding: 14 }}>
-          {[["Weight", config.athlete.weight + " kg"], ["SMM", config.athlete.smm + " kg"], ["Body Fat", config.athlete.bf + "%"], ["Phase", config.goals.phase], ["Target", config.goals.targetWeight + " kg"]].map(function(item) {
-            return <div key={item[0]} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "4px 0", borderBottom: "0.5px solid #f0f0f0" }}><span style={{ color: "#888" }}>{item[0]}</span><span style={{ fontWeight: 500 }}>{item[1]}</span></div>;
-          })}
+          {[["Weight", config.athlete.weight + " kg"], ["SMM", config.athlete.smm + " kg"], ["Body Fat", config.athlete.bf + "%"], ["Phase", config.goals.phase], ["Target", config.goals.targetWeight + " kg"]].map(function(item) { return <div key={item[0]} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "4px 0", borderBottom: "0.5px solid #f0f0f0" }}><span style={{ color: "#888" }}>{item[0]}</span><span style={{ fontWeight: 500 }}>{item[1]}</span></div>; })}
         </div>
       </Card>
     </div>
@@ -339,22 +330,6 @@ function TrainingSummary({ session, logs, wl, estDur, dur, buildCSV, sheetStatus
   );
 }
 
-function TrainingHistory() {
-  var [sessions, setSessions] = useState(null);
-  useEffect(function() {
-    var res = storage.list("hh_session_");
-    if (!res.keys.length) { setSessions([]); return; }
-    var recs = res.keys.map(function(k) {
-      var r = storage.get(k); if (!r) return null;
-      try { var rec = JSON.parse(r.value); return { date: rec.date, title: rec.title, hrv: rec.hrv, rhr: rec.rhr, duration: rec.duration, difficulty: rec.difficulty, completion: rec.completion }; } catch(e) { return null; }
-    }).filter(Boolean).sort(function(a, b) { return b.date.localeCompare(a.date); });
-    setSessions(recs);
-  }, []);
-  if (!sessions) return <div style={{ padding: 20, textAlign: "center", color: "#aaa", fontSize: 13 }}>Loading...</div>;
-  if (!sessions.length) return <div style={{ padding: 20, textAlign: "center", color: "#aaa", fontSize: 13 }}>No sessions saved yet.</div>;
-  return <div>{sessions.map(function(rec, idx) { return <div key={idx} style={{ background: "#fff", border: "0.5px solid #ddd", borderRadius: 10, padding: "12px 14px", marginBottom: 10 }}><div style={{ fontSize: 14, fontWeight: 500, marginBottom: 4 }}>{rec.date} - {rec.title}</div><div style={{ fontSize: 11, color: "#888", marginBottom: 8 }}>HRV {rec.hrv} · RHR {rec.rhr}{rec.duration ? " · " + rec.duration + " min" : ""}</div><div style={{ display: "flex", gap: 10 }}>{[["difficulty", rec.difficulty ? rec.difficulty + " kg" : "-"], ["completion", rec.completion ? rec.completion + "%" : "-"]].map(function(item) { return <div key={item[0]} style={{ flex: 1, background: "#f5f5f3", borderRadius: 8, padding: "6px 10px", textAlign: "center" }}><div style={{ fontSize: 15, fontWeight: 500 }}>{item[1]}</div><div style={{ fontSize: 10, color: "#aaa" }}>{item[0]}</div></div>; })}</div></div>; })}</div>;
-}
-
 // ── TRAINING TAB ──────────────────────────────────────────────
 function TrainingTab({ config, onSessionSaved, lastSessionData }) {
   var [session, setSession] = useState(null); var [phase, setPhase] = useState("loader");
@@ -362,12 +337,13 @@ function TrainingTab({ config, onSessionSaved, lastSessionData }) {
   var [trainState, setTrainState] = useState({ bk: "", ei: 0, si: 0 });
   var [resting, setResting] = useState(null); var [restRem, setRestRem] = useState(0);
   var [hrAtRest, setHrAtRest] = useState({}); var [skipConfirm, setSkipConfirm] = useState(null);
-  var [syncStatus, setSyncStatus] = useState(null); var [sheetStatus, setSheetStatus] = useState(null);
+  var [sheetStatus, setSheetStatus] = useState(null); var [syncStatus, setSyncStatus] = useState(null);
   var [sessionStartTime, setSessionStartTime] = useState(null);
   var [configInput, setConfigInput] = useState(""); var [configErr, setConfigErr] = useState("");
   var restRef = useRef(null); var hrInputRefs = useRef({});
 
-  useEffect(function() { var r = storage.get("hh_active_session"); if (r) { try { applySession(JSON.parse(r.value), false); } catch(e) {} } }, []);
+  // Persist active session in localStorage for mid-session recovery only
+  useEffect(function() { var r = localStorage.getItem("hh_active_session"); if (r) { try { applySession(JSON.parse(r), false); } catch(e) {} } }, []);
   useEffect(function() {
     if (!resting) return; if (restRef.current) clearInterval(restRef.current);
     var rem = resting.sec; setRestRem(rem);
@@ -379,7 +355,7 @@ function TrainingTab({ config, onSessionSaved, lastSessionData }) {
   function applySession(s, save) {
     setSession(s); var l = {}; s.blocks.forEach(function(b) { b.exercises.forEach(function(ex) { l[ex.id] = Array.from({ length: ex.sets }, function() { return { reps: "", weight: "", rir: null, done: false }; }); }); });
     setLogs(l); setHrAtRest({}); setSessionStartTime(null); setTrainState({ bk: s.blocks[0].id, ei: 0, si: 0 });
-    if (save) storage.set("hh_active_session", JSON.stringify(s));
+    if (save) localStorage.setItem("hh_active_session", JSON.stringify(s));
     setPhase("warmup");
   }
   function getBlock(bk) { return session && session.blocks.find(function(b) { return b.id === bk; }); }
@@ -414,16 +390,14 @@ function TrainingTab({ config, onSessionSaved, lastSessionData }) {
   function saveSession(dur) {
     var wl = calcWorkload();
     var record = { date: session.date, dateISO: session.dateISO || todayISO(), title: session.title, hrv: session.hrv, rhr: session.rhr, duration: dur, difficulty: wl.expWeighted, completion: wl.pct, workload: wl, hrAtRest: hrAtRest, blocks: session.blocks.map(function(b, bi) { return { label: b.label, exercises: b.exercises.map(function(ex, ei) { return { name: ex.name, targetReps: ex.reps, targetKg: ex.kg, sets: (logs[ex.id] || []).map(function(s, si) { return { reps: s.reps, weight: s.weight, rir: s.rir, rirLabel: s.rir ? RIR_MAP[s.rir] : "-", hr: hrAtRest[b.id + "_" + ei + "_" + si] || "" }; }) }; }) }; }) };
-    var saved = storage.set("hh_session_" + (session.dateISO || session.date).replace(/\s/g, "_"), JSON.stringify(record));
-    if (saved) { setSyncStatus("ok"); onSessionSaved(record); } else { setSyncStatus("fail"); }
-    var ep = config.sheets && config.sheets.endpoint; if (!ep) return;
-    var secret = config.sheets.secret || "heavyhybrid2026";
+    localStorage.removeItem("hh_active_session");
+    setSyncStatus("ok"); onSessionSaved(record);
     var blockVols = {}; record.blocks.forEach(function(b, i) { var key = "block" + String.fromCharCode(65 + i); var vol = 0; b.exercises.forEach(function(ex) { ex.sets.forEach(function(s) { vol += (parseFloat(s.reps) || 0) * (parseFloat(s.weight) || 0); }); }); blockVols[key] = Math.round(vol); });
     var rows = []; record.blocks.forEach(function(b) { b.exercises.forEach(function(ex) { ex.sets.forEach(function(s, si) { rows.push({ block: b.label, exercise: ex.name, set: si + 1, targetReps: ex.targetReps, targetKg: ex.targetKg, actualReps: s.reps, actualKg: s.weight, rir: s.rir, rirLabel: s.rirLabel, hr: s.hr }); }); }); });
     var hrs = Object.values(record.hrAtRest || {}).filter(function(v) { return v > 0; });
     var avgHR = hrs.length ? Math.round(hrs.reduce(function(a, b) { return a + b; }, 0) / hrs.length) : "";
-    sheetsPost(ep, secret, "logSession", { date: record.date, title: record.title, hrv: record.hrv, rhr: record.rhr, estDuration: calcDuration(), actualDuration: dur || "", difficulty: wl.expWeighted, completion: wl.pct, weightedDelta: wl.actWeighted - wl.expWeighted, bwDelta: wl.actBW - wl.expBW, blockAVol: blockVols.blockA || "", blockBVol: blockVols.blockB || "", blockCVol: blockVols.blockC || "", avgPeakHR: avgHR }).then(function() { setSheetStatus("ok"); }).catch(function() { setSheetStatus("fail"); });
-    sheetsPost(ep, secret, "logLastSession", { date: record.date, title: record.title, rows: rows }).catch(function() {});
+    sheetsWrite("logSession", { date: record.date, title: record.title, hrv: record.hrv, rhr: record.rhr, estDuration: calcDuration(), actualDuration: dur || "", difficulty: wl.expWeighted, completion: wl.pct, weightedDelta: wl.actWeighted - wl.expWeighted, bwDelta: wl.actBW - wl.expBW, blockAVol: blockVols.blockA || "", blockBVol: blockVols.blockB || "", blockCVol: blockVols.blockC || "", avgPeakHR: avgHR }).then(function() { setSheetStatus("ok"); }).catch(function() { setSheetStatus("fail"); });
+    sheetsWrite("logLastSession", { date: record.date, title: record.title, rows: rows }).catch(function() {});
   }
   function buildCSV() {
     var wl = calcWorkload(); var dur = sessionStartTime ? Math.round((Date.now() - sessionStartTime) / 60000) : "";
@@ -433,8 +407,8 @@ function TrainingTab({ config, onSessionSaved, lastSessionData }) {
   }
 
   var wl = calcWorkload(), estDur = calcDuration(), dur = sessionStartTime ? Math.round((Date.now() - sessionStartTime) / 60000) : null;
-  var phases = session ? ["loader", "warmup"].concat(session.blocks.map(function(b) { return b.id; })).concat(["summary", "history"]) : ["loader", "history"];
-  var phaseLabels = { loader: "Config", warmup: "Warm-up", summary: "Summary", history: "History" };
+  var phases = session ? ["loader", "warmup"].concat(session.blocks.map(function(b) { return b.id; })).concat(["summary"]) : ["loader"];
+  var phaseLabels = { loader: "Config", warmup: "Warm-up", summary: "Summary" };
   if (session) session.blocks.forEach(function(b) { phaseLabels[b.id] = b.label.split("-")[0].trim(); });
 
   return (
@@ -454,9 +428,8 @@ function TrainingTab({ config, onSessionSaved, lastSessionData }) {
         var lastRef = (lastSessionData[ex && ex.name] && lastSessionData[ex.name][si]) ? lastSessionData[ex.name][si] : null;
         return <Card key={b.id}><CardHdr left={b.label} right={<span style={badgeStyle(b.zc)}>{b.bpm}</span>} /><div style={{ background: "#f9f9f7", borderBottom: "0.5px solid #eee", padding: "7px 14px", fontSize: 11, color: "#666", display: "flex", alignItems: "center", gap: 6 }}>Target HR: <span style={badgeStyle(b.zc)}>{b.bpm}</span></div><SetScreen ex={ex} si={si} log={log} lastRef={lastRef} totalSets={ex.sets} allLogs={logs[ex.id] || []} onLog={function() { logSet(b.id, ei, si); }} onSkip={function() { setSkipConfirm({ bk: b.id, ei: ei, si: si }); }} onSetLog={function(v) { updateLog(ex.id, si, "reps", v); }} onSetWeight={function(v) { updateLog(ex.id, si, "weight", v); }} onSetRir={function(v) { updateLog(ex.id, si, "rir", v); }} />{skipConfirm && skipConfirm.bk === b.id && skipConfirm.ei === ei && skipConfirm.si === si && <div style={{ margin: "0 16px 16px", background: "#fff7ed", border: "0.5px solid #fcd9a0", borderRadius: 8, padding: "10px 12px", fontSize: 12, color: "#92400e", textAlign: "center" }}>Skip this set?<div style={{ display: "flex", gap: 8, marginTop: 8 }}><button style={{ flex: 1, padding: 7, borderRadius: 6, border: "0.5px solid #fcd9a0", background: "#fff", fontSize: 12, cursor: "pointer" }} onClick={function() { setSkipConfirm(null); }}>Cancel</button><button style={{ flex: 1, padding: 7, borderRadius: 6, border: "none", background: "#1a1a1a", color: "#fff", fontSize: 12, cursor: "pointer" }} onClick={function() { doAdvance(b.id, ei, si, true); }}>Yes, skip</button></div></div>}</Card>;
       })}
-      {phase === "complete" && <Card><CardHdr left="Session complete" /><div style={{ padding: 16, textAlign: "center" }}><div style={{ fontSize: 40, marginBottom: 12 }}>✓</div>{dur && <div style={{ fontSize: 13, color: "#888", marginBottom: 8 }}>Duration: {dur} min</div>}{syncStatus === "ok" && <div style={{ background: "#dcfce7", color: "#166534", fontSize: 12, padding: "8px 12px", borderRadius: 8, marginBottom: 8 }}>Session saved</div>}{syncStatus === "fail" && <div style={{ background: "#fee2e2", color: "#991b1b", fontSize: 12, padding: "8px 12px", borderRadius: 8, marginBottom: 8 }}>Save failed</div>}<SheetStatus status={sheetStatus} /><ActionBtn onClick={function() { setPhase("summary"); }}>View summary</ActionBtn></div></Card>}
+      {phase === "complete" && <Card><CardHdr left="Session complete" /><div style={{ padding: 16, textAlign: "center" }}><div style={{ fontSize: 40, marginBottom: 12 }}>✓</div>{dur && <div style={{ fontSize: 13, color: "#888", marginBottom: 8 }}>Duration: {dur} min</div>}<SheetStatus status={sheetStatus} /><ActionBtn onClick={function() { setPhase("summary"); }}>View summary</ActionBtn></div></Card>}
       {phase === "summary" && session && <TrainingSummary session={session} logs={logs} wl={wl} estDur={estDur} dur={dur} buildCSV={buildCSV} sheetStatus={sheetStatus} />}
-      {phase === "history" && <TrainingHistory />}
     </div>
   );
 }
@@ -464,14 +437,14 @@ function TrainingTab({ config, onSessionSaved, lastSessionData }) {
 // ── SAVED MEALS ───────────────────────────────────────────────
 function SavedMeals({ onSelect }) {
   var [saved, setSaved] = useState([]);
-  useEffect(function() { var r = storage.get("hh_saved_meals"); if (r) { try { setSaved(JSON.parse(r.value)); } catch(e) {} } }, []);
-  function deleteMeal(id) { var updated = saved.filter(function(m) { return m.id !== id; }); setSaved(updated); storage.set("hh_saved_meals", JSON.stringify(updated)); }
+  useEffect(function() { try { var r = localStorage.getItem("hh_saved_meals"); if (r) setSaved(JSON.parse(r)); } catch(e) {} }, []);
+  function deleteMeal(id) { var updated = saved.filter(function(m) { return m.id !== id; }); setSaved(updated); localStorage.setItem("hh_saved_meals", JSON.stringify(updated)); }
   if (!saved.length) return <div style={{ fontSize: 12, color: "#aaa", textAlign: "center", padding: "12px 0" }}>No saved meals yet.</div>;
   return <div>{saved.map(function(m) { return <div key={m.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: "0.5px solid #f0f0f0" }}><div><div style={{ fontSize: 13, fontWeight: 500 }}>{m.food}</div><div style={{ fontSize: 11, color: "#aaa" }}>{m.cal} kcal · P:{m.protein}g · C:{m.carbs}g · F:{m.fat}g</div></div><div style={{ display: "flex", gap: 8 }}><button onClick={function() { onSelect(m); }} style={{ padding: "5px 12px", background: "#1a1a1a", color: "#fff", border: "none", borderRadius: 6, fontSize: 12, cursor: "pointer" }}>Add</button><button onClick={function() { deleteMeal(m.id); }} style={{ padding: "5px 8px", background: "none", border: "none", color: "#dc2626", fontSize: 14, cursor: "pointer" }}>×</button></div></div>; })}</div>;
 }
 
 // ── NUTRITION TAB ─────────────────────────────────────────────
-function NutritionTab({ config, todayLogs, setTodayLogs, isTrainingDay, calOverride }) {
+function NutritionTab({ config, todayLogs, onAddMeal, onDeleteMeal, isTrainingDay, calOverride }) {
   var [meal, setMeal] = useState("Breakfast"); var [description, setDescription] = useState("");
   var [isEatOut, setIsEatOut] = useState(false); var [restaurantType, setRestaurantType] = useState("");
   var [status, setStatus] = useState(null); var [nutTab, setNutTab] = useState("log");
@@ -482,8 +455,11 @@ function NutritionTab({ config, todayLogs, setTodayLogs, isTrainingDay, calOverr
   var remaining = calGoal - totals.cal;
   var eatOutCount = todayLogs.filter(function(e) { return e.eatOut; }).length;
   var homeCount = todayLogs.filter(function(e) { return !e.eatOut; }).length;
-  function addEntry(data) { setTodayLogs(function(prev) { return prev.concat([Object.assign({ id: Date.now(), meal: meal, eatOut: isEatOut, restaurantType: isEatOut ? restaurantType : "", description: description }, data)]); }); setIsEatOut(false); setRestaurantType(""); setDescription(""); }
-  function saveMeal(data) { var r = storage.get("hh_saved_meals"); var existing = (r && r.value) ? JSON.parse(r.value) : []; existing.push(Object.assign({ id: Date.now() }, data)); storage.set("hh_saved_meals", JSON.stringify(existing)); }
+  function addEntry(data) {
+    onAddMeal(Object.assign({ id: Date.now(), meal: meal, eatOut: isEatOut, restaurantType: isEatOut ? restaurantType : "", description: description }, data));
+    setIsEatOut(false); setRestaurantType(""); setDescription("");
+  }
+  function saveMeal(data) { try { var r = localStorage.getItem("hh_saved_meals"); var existing = r ? JSON.parse(r) : []; existing.push(Object.assign({ id: Date.now() }, data)); localStorage.setItem("hh_saved_meals", JSON.stringify(existing)); } catch(e) {} }
   return (
     <div>
       <Card>
@@ -541,7 +517,7 @@ function NutritionTab({ config, todayLogs, setTodayLogs, isTrainingDay, calOverr
           {!todayLogs.length && <div style={{ textAlign: "center", color: "#aaa", marginTop: 40, fontSize: 14 }}>Nothing logged today yet.</div>}
           {MEALS.map(function(m) {
             var entries = todayLogs.filter(function(e) { return e.meal === m; }); if (!entries.length) return null;
-            return <div key={m} style={{ marginBottom: 14 }}><div style={{ fontWeight: 500, fontSize: 11, color: "#888", marginBottom: 6, textTransform: "uppercase", letterSpacing: 1 }}>{m}</div>{entries.map(function(e) { return <div key={e.id} style={{ background: "#fff", border: "0.5px solid #ddd", borderRadius: 10, marginBottom: 6 }}><div style={{ padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}><div><div style={{ fontWeight: 500, fontSize: 14 }}>{e.food} {e.eatOut ? <span style={{ fontSize: 10, background: "#fef9c3", color: "#854d0e", borderRadius: 4, padding: "1px 5px", marginLeft: 4 }}>eat-out</span> : <span style={{ fontSize: 10, background: "#dcfce7", color: "#166534", borderRadius: 4, padding: "1px 5px", marginLeft: 4 }}>home</span>}</div><div style={{ fontSize: 12, color: "#aaa" }}>P: {e.protein}g · C: {e.carbs}g · F: {e.fat}g{e.restaurantType ? " · " + e.restaurantType : ""}</div></div><div style={{ display: "flex", alignItems: "center", gap: 10 }}><span style={{ fontWeight: 500 }}>{e.cal} kcal</span><button onClick={function() { setTodayLogs(function(prev) { return prev.filter(function(x) { return x.id !== e.id; }); }); }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 16, color: "#dc2626" }}>×</button></div></div></div>; })}</div>;
+            return <div key={m} style={{ marginBottom: 14 }}><div style={{ fontWeight: 500, fontSize: 11, color: "#888", marginBottom: 6, textTransform: "uppercase", letterSpacing: 1 }}>{m}</div>{entries.map(function(e) { return <div key={e.id} style={{ background: "#fff", border: "0.5px solid #ddd", borderRadius: 10, marginBottom: 6 }}><div style={{ padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}><div><div style={{ fontWeight: 500, fontSize: 14 }}>{e.food} {e.eatOut ? <span style={{ fontSize: 10, background: "#fef9c3", color: "#854d0e", borderRadius: 4, padding: "1px 5px", marginLeft: 4 }}>eat-out</span> : <span style={{ fontSize: 10, background: "#dcfce7", color: "#166534", borderRadius: 4, padding: "1px 5px", marginLeft: 4 }}>home</span>}</div><div style={{ fontSize: 12, color: "#aaa" }}>P: {e.protein}g · C: {e.carbs}g · F: {e.fat}g{e.restaurantType ? " · " + e.restaurantType : ""}</div></div><div style={{ display: "flex", alignItems: "center", gap: 10 }}><span style={{ fontWeight: 500 }}>{e.cal} kcal</span><button onClick={function() { onDeleteMeal(e.id); }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 16, color: "#dc2626" }}>×</button></div></div></div>; })}</div>;
           })}
           {todayLogs.length > 0 && <div style={{ background: "#f5f5f3", border: "0.5px solid #ddd", borderRadius: 10, padding: "10px 14px" }}><div style={{ fontWeight: 500, fontSize: 13 }}>Totals</div><div style={{ fontSize: 12, color: "#888", marginTop: 4 }}>{totals.cal} kcal · {totals.protein}g P · {totals.carbs}g C · {totals.fat}g F</div><div style={{ fontSize: 12, color: "#888", marginTop: 2 }}>{todayLogs.length} meals · {homeCount} home · {eatOutCount} eat-out</div></div>}
         </div>
@@ -551,31 +527,32 @@ function NutritionTab({ config, todayLogs, setTodayLogs, isTrainingDay, calOverr
 }
 
 // ── CALENDAR ──────────────────────────────────────────────────
-function DayDetail({ iso, config, burnLogs, setBurnLogs, trainHistory, correction, nutLogs }) {
+function DayDetail({ iso, config, burnLogs, onSaveBurn, trainHistory, correction }) {
   var [burnInput, setBurnInput] = useState(burnLogs[iso] ? String(burnLogs[iso]) : ""); var [saved, setSaved] = useState(false);
   var burn = burnLogs[iso]; var correctedBurn = burn ? Math.round(burn * correction) : null;
-  var session = trainHistory.find(function(s) { try { return s.dateISO === iso || new Date(s.date + " UTC").toISOString().slice(0, 10) === iso; } catch(e) { return false; } });
-  var nut = nutLogs[iso];
-  function saveBurn() { var v = parseFloat(burnInput); if (!v || isNaN(v)) return; var updated = Object.assign({}, burnLogs); updated[iso] = v; setBurnLogs(updated); storage.set("hh_burn_logs", JSON.stringify(updated)); setSaved(true); setTimeout(function() { setSaved(false); }, 2000); }
+  var session = trainHistory.find(function(s) { try { return s.dateISO === iso || s["Date"] === iso; } catch(e) { return false; } });
+  function saveBurn() {
+    var v = parseFloat(burnInput); if (!v || isNaN(v)) return;
+    onSaveBurn(iso, v);
+    setSaved(true); setTimeout(function() { setSaved(false); }, 2000);
+  }
   var label = new Date(iso + "T12:00:00").toLocaleDateString("en", { weekday: "long", month: "long", day: "numeric" });
   return (
     <div style={{ marginTop: 14, background: "#fff", border: "0.5px solid #ddd", borderRadius: 12, overflow: "hidden" }}>
       <div style={{ background: "#1a1a1a", color: "#fff", padding: "10px 14px", fontSize: 13, fontWeight: 500, display: "flex", justifyContent: "space-between", alignItems: "center" }}><span>{label}</span><span style={{ fontSize: 11, color: "#aaa" }}>{session ? "Training day" : "Rest day"}</span></div>
       <div style={{ padding: 14 }}>
-        {nut && <div style={{ marginBottom: 14 }}><div style={{ fontSize: 11, color: "#999", fontWeight: 500, marginBottom: 6 }}>NUTRITION</div><div style={{ display: "flex", gap: 8 }}>{[["kcal", nut.cal], ["protein", nut.protein + "g"], ["carbs", nut.carbs + "g"], ["fat", nut.fat + "g"]].map(function(item) { return <div key={item[0]} style={{ flex: 1, background: "#f5f5f3", borderRadius: 8, padding: "6px 8px", textAlign: "center" }}><div style={{ fontSize: 14, fontWeight: 500 }}>{item[1]}</div><div style={{ fontSize: 10, color: "#aaa" }}>{item[0]}</div></div>; })}</div>{nut.eatOut > 0 && <div style={{ fontSize: 11, color: "#854d0e", marginTop: 6 }}>{nut.eatOut} eat-out meal{nut.eatOut > 1 ? "s" : ""}</div>}</div>}
-        {session && <div style={{ background: "#f5f5f3", borderRadius: 8, padding: "10px 12px", marginBottom: 14 }}><div style={{ fontSize: 12, fontWeight: 500, marginBottom: 6 }}>{session.title}</div><div style={{ display: "flex", gap: 10 }}>{[["difficulty", session.difficulty ? session.difficulty + " kg" : "-"], ["completion", session.completion ? session.completion + "%" : "-"]].map(function(item) { return <div key={item[0]} style={{ flex: 1, textAlign: "center" }}><div style={{ fontSize: 16, fontWeight: 500 }}>{item[1]}</div><div style={{ fontSize: 10, color: "#aaa" }}>{item[0]}</div></div>; })}</div></div>}
-        <div><div style={{ fontSize: 11, color: "#999", fontWeight: 500, marginBottom: 6 }}>CALORIES BURNED (PIXEL WATCH - RAW)</div><div style={{ display: "flex", gap: 8, alignItems: "center" }}><input type="number" inputMode="numeric" value={burnInput} onChange={function(e) { setBurnInput(e.target.value); setSaved(false); }} placeholder="e.g. 2680" style={{ flex: 1, padding: "10px 12px", border: "0.5px solid #ccc", borderRadius: 8, fontSize: 15, fontWeight: 500 }} /><button onClick={saveBurn} style={{ padding: "10px 18px", background: "#1a1a1a", color: "#fff", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: "pointer" }}>{saved ? "Saved" : "Save"}</button></div>{correctedBurn && <div style={{ marginTop: 10, fontSize: 12, color: "#888" }}>Corrected: <strong>{correctedBurn} kcal</strong> (×{correction})</div>}{correctedBurn && nut && <div style={{ marginTop: 8, fontSize: 12, fontWeight: 500, color: nut.cal <= correctedBurn ? "#166534" : nut.cal - correctedBurn < 300 ? "#854d0e" : "#dc2626" }}>Energy balance: {nut.cal - correctedBurn > 0 ? "+" : ""}{nut.cal - correctedBurn} kcal</div>}</div>
+        {session && <div style={{ background: "#f5f5f3", borderRadius: 8, padding: "10px 12px", marginBottom: 14 }}><div style={{ fontSize: 12, fontWeight: 500, marginBottom: 6 }}>{session["Session Title"] || session.title}</div><div style={{ display: "flex", gap: 10 }}>{[["difficulty", (session["Difficulty (kg)"] || session.difficulty || "-") + " kg"], ["completion", (session["Completion (%)"] || session.completion || "-") + "%"]].map(function(item) { return <div key={item[0]} style={{ flex: 1, textAlign: "center" }}><div style={{ fontSize: 16, fontWeight: 500 }}>{item[1]}</div><div style={{ fontSize: 10, color: "#aaa" }}>{item[0]}</div></div>; })}</div></div>}
+        <div><div style={{ fontSize: 11, color: "#999", fontWeight: 500, marginBottom: 6 }}>CALORIES BURNED (PIXEL WATCH - RAW)</div><div style={{ display: "flex", gap: 8, alignItems: "center" }}><input type="number" inputMode="numeric" value={burnInput} onChange={function(e) { setBurnInput(e.target.value); setSaved(false); }} placeholder="e.g. 2680" style={{ flex: 1, padding: "10px 12px", border: "0.5px solid #ccc", borderRadius: 8, fontSize: 15, fontWeight: 500 }} /><button onClick={saveBurn} style={{ padding: "10px 18px", background: "#1a1a1a", color: "#fff", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: "pointer" }}>{saved ? "Saved" : "Save"}</button></div>{correctedBurn && <div style={{ marginTop: 10, fontSize: 12, color: "#888" }}>Corrected: <strong>{correctedBurn} kcal</strong> (×{correction})</div>}</div>
       </div>
     </div>
   );
 }
 
-function WeekDetail({ weekKey, omronLogs, setOmronLogs }) {
-  var existing = omronLogs[weekKey] || {};
-  var [weight, setWeight] = useState(existing.weight ? String(existing.weight) : ""); var [bf, setBf] = useState(existing.bf ? String(existing.bf) : ""); var [saved, setSaved] = useState(false);
+function WeekDetail({ weekKey, omronData, onSaveOmron }) {
+  var [weight, setWeight] = useState(omronData ? String(omronData.weight) : ""); var [bf, setBf] = useState(omronData ? String(omronData.bf) : ""); var [saved, setSaved] = useState(false);
   var leanMass = weight && bf ? Math.round(parseFloat(weight) * (1 - parseFloat(bf) / 100) * 10) / 10 : null;
   var fatMass = weight && bf ? Math.round(parseFloat(weight) * (parseFloat(bf) / 100) * 10) / 10 : null;
-  function save() { var w = parseFloat(weight), b = parseFloat(bf); if (!w || !b || isNaN(w) || isNaN(b)) return; var updated = Object.assign({}, omronLogs); updated[weekKey] = { weight: w, bf: b, entryDate: todayISO() }; setOmronLogs(updated); storage.set("hh_omron_logs", JSON.stringify(updated)); setSaved(true); setTimeout(function() { setSaved(false); }, 2000); }
+  function save() { var w = parseFloat(weight), b = parseFloat(bf); if (!w || !b || isNaN(w) || isNaN(b)) return; onSaveOmron(weekKey, w, b); setSaved(true); setTimeout(function() { setSaved(false); }, 2000); }
   return (
     <div style={{ background: "#fff", border: "0.5px solid #ddd", borderTop: "none", borderRadius: "0 0 10px 10px", padding: 14, marginBottom: 8 }}>
       <div style={{ fontSize: 11, color: "#999", fontWeight: 500, marginBottom: 12 }}>OMRON WEEKLY AVERAGE</div>
@@ -585,21 +562,20 @@ function WeekDetail({ weekKey, omronLogs, setOmronLogs }) {
       </div>
       {leanMass && fatMass && <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>{[["Lean mass", leanMass + " kg"], ["Fat mass", fatMass + " kg"]].map(function(item) { return <div key={item[0]} style={{ flex: 1, background: "#f5f5f3", borderRadius: 8, padding: "8px 10px", textAlign: "center" }}><div style={{ fontSize: 16, fontWeight: 500 }}>{item[1]}</div><div style={{ fontSize: 10, color: "#aaa" }}>{item[0]}</div></div>; })}</div>}
       <button onClick={save} style={{ width: "100%", padding: 13, background: saved ? "#2d7a4f" : "#1a1a1a", color: "#fff", border: "none", borderRadius: 10, fontSize: 14, fontWeight: 500, cursor: "pointer" }}>{saved ? "Saved" : "Save Omron reading"}</button>
-      {existing.entryDate && <div style={{ fontSize: 11, color: "#aaa", textAlign: "center", marginTop: 8 }}>Last saved: {fmtDate(existing.entryDate)}</div>}
     </div>
   );
 }
 
-function CalendarTab({ config, burnLogs, setBurnLogs, trainHistory, omronLogs, setOmronLogs, nutLogs }) {
+function CalendarTab({ config, burnLogs, onSaveBurn, trainHistory, omronLogs, onSaveOmron }) {
   var [viewDate, setViewDate] = useState(new Date()); var [calView, setCalView] = useState("daily");
   var [selectedISO, setSelectedISO] = useState(null); var [selectedWeek, setSelectedWeek] = useState(null);
   var year = viewDate.getFullYear(), month = viewDate.getMonth();
   var daysInMonth = new Date(year, month + 1, 0).getDate();
   var firstDay = (new Date(year, month, 1).getDay() + 6) % 7;
   var correction = config.training.pixelWatchCorrection; var today = todayISO();
-  function getDayColor(iso) { var burn = burnLogs[iso]; var nut = nutLogs[iso]; if (!burn || !nut) return "#f9f9f7"; var balance = nut.cal - Math.round(burn * correction); if (balance <= -300) return "#bbf7d0"; if (balance <= 0) return "#dcfce7"; if (balance <= 300) return "#fef9c3"; return "#fee2e2"; }
-  function getDayBadges(iso) { var nut = nutLogs[iso]; if (!nut) return []; var badges = []; if (nut.protein < config.nutrition.protein - 20) badges.push({ color: "#3b82f6", title: "Low protein" }); if (nut.fat > (config.nutrition.fatTraining || 70) + 15) badges.push({ color: "#f97316", title: "High fat" }); if (nut.carbs > (config.nutrition.carbsTraining || 248) + 30) badges.push({ color: "#a855f7", title: "High carbs" }); if (nut.eatOut > 0) badges.push({ color: "#f59e0b", title: nut.eatOut + " eat-out" }); return badges; }
+
   function getWeeksInMonth() { var weeks = []; for (var d = 1; d <= daysInMonth; d++) { var iso = year + "-" + String(month + 1).padStart(2, "0") + "-" + String(d).padStart(2, "0"); var wk = getWeekKey(iso); if (!weeks.find(function(w) { return w.key === wk; })) { var start = new Date(iso + "T12:00:00"); var end = new Date(start); end.setDate(start.getDate() + 6); weeks.push({ key: wk, label: start.toLocaleDateString("en", { month: "short", day: "numeric" }) + " – " + end.toLocaleDateString("en", { month: "short", day: "numeric" }) }); } } return weeks; }
+
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
@@ -618,24 +594,24 @@ function CalendarTab({ config, burnLogs, setBurnLogs, trainHistory, omronLogs, s
             {Array.from({ length: daysInMonth }, function(_, i) {
               var day = i + 1; var iso = year + "-" + String(month + 1).padStart(2, "0") + "-" + String(day).padStart(2, "0");
               var isToday = iso === today, isSelected = iso === selectedISO;
-              var hasSession = trainHistory.some(function(s) { try { return s.dateISO === iso || new Date(s.date + " UTC").toISOString().slice(0, 10) === iso; } catch(e) { return false; } });
-              var bg = getDayColor(iso); var badges = getDayBadges(iso);
-              return <div key={day} onClick={function() { setSelectedISO(isSelected ? null : iso); }} style={{ background: bg, borderRadius: 8, padding: "5px 3px", minHeight: 46, border: isSelected ? "2px solid #1a1a1a" : isToday ? "2px solid #888" : "0.5px solid #e0e0e0", cursor: "pointer" }}><div style={{ fontSize: 12, fontWeight: isToday ? 700 : 400, textAlign: "center" }}>{day}</div>{hasSession && <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#2d7a4f", margin: "2px auto 0" }} />}{badges.length > 0 && <div style={{ display: "flex", justifyContent: "center", gap: 2, marginTop: 2, flexWrap: "wrap" }}>{badges.map(function(b, bi) { return <div key={bi} title={b.title} style={{ width: 4, height: 4, borderRadius: "50%", background: b.color }} />; })}</div>}</div>;
+              var hasSession = trainHistory.some(function(s) { return s["Date"] === iso || s.dateISO === iso; });
+              var hasBurn = !!burnLogs[iso];
+              return <div key={day} onClick={function() { setSelectedISO(isSelected ? null : iso); }} style={{ background: hasBurn ? "#dbeafe" : "#f9f9f7", borderRadius: 8, padding: "5px 3px", minHeight: 44, border: isSelected ? "2px solid #1a1a1a" : isToday ? "2px solid #888" : "0.5px solid #e0e0e0", cursor: "pointer" }}><div style={{ fontSize: 12, fontWeight: isToday ? 700 : 400, textAlign: "center" }}>{day}</div>{hasSession && <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#2d7a4f", margin: "2px auto 0" }} />}</div>;
             })}
           </div>
-          {selectedISO && <DayDetail iso={selectedISO} config={config} burnLogs={burnLogs} setBurnLogs={setBurnLogs} trainHistory={trainHistory} correction={correction} nutLogs={nutLogs} />}
+          {selectedISO && <DayDetail iso={selectedISO} config={config} burnLogs={burnLogs} onSaveBurn={onSaveBurn} trainHistory={trainHistory} correction={correction} />}
           <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {[["#bbf7d0","Deficit 300+"],["#dcfce7","Deficit"],["#fef9c3","Surplus <300"],["#fee2e2","Surplus 300+"],["#f9f9f7","No data"]].map(function(item) { return <div key={item[1]} style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 10, color: "#666" }}><div style={{ width: 10, height: 10, borderRadius: 2, background: item[0], border: "0.5px solid #ddd" }} />{item[1]}</div>; })}
+            {[["#dbeafe","Burn logged"],["#f9f9f7","No data"]].map(function(item) { return <div key={item[1]} style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 10, color: "#666" }}><div style={{ width: 10, height: 10, borderRadius: 2, background: item[0], border: "0.5px solid #ddd" }} />{item[1]}</div>; })}
+            <div style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 10, color: "#666" }}><div style={{ width: 5, height: 5, borderRadius: "50%", background: "#2d7a4f" }} />Session</div>
           </div>
-          <div style={{ marginTop: 6, display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {[["#2d7a4f","Session","5px"],["#3b82f6","Low protein","4px"],["#f97316","High fat","4px"],["#a855f7","High carbs","4px"],["#f59e0b","Eat-out","4px"]].map(function(item) { return <div key={item[1]} style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 10, color: "#666" }}><div style={{ width: item[2], height: item[2], borderRadius: "50%", background: item[0] }} />{item[1]}</div>; })}
-          </div>
+          <div style={{ fontSize: 11, color: "#aaa", marginTop: 8, textAlign: "center" }}>Full energy balance color coding coming with complete sheet integration</div>
         </div>
       )}
       {calView === "weekly" && (
         <div>
           {getWeeksInMonth().map(function(w) {
-            return <div key={w.key}><div onClick={function() { setSelectedWeek(selectedWeek === w.key ? null : w.key); }} style={{ background: "#fff", border: "0.5px solid #ddd", borderRadius: selectedWeek === w.key ? "10px 10px 0 0" : 10, padding: "12px 14px", marginBottom: selectedWeek === w.key ? 0 : 8, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}><span style={{ fontSize: 13, fontWeight: 500 }}>{w.label}</span><div style={{ display: "flex", alignItems: "center", gap: 8 }}>{omronLogs[w.key] && <span style={{ fontSize: 11, color: "#2d7a4f", fontWeight: 500 }}>{omronLogs[w.key].weight} kg · {omronLogs[w.key].bf}% BF</span>}<span style={{ fontSize: 14, color: "#aaa" }}>{selectedWeek === w.key ? "^" : "v"}</span></div></div>{selectedWeek === w.key && <WeekDetail weekKey={w.key} omronLogs={omronLogs} setOmronLogs={setOmronLogs} />}</div>;
+            var omronData = omronLogs[w.key] || null;
+            return <div key={w.key}><div onClick={function() { setSelectedWeek(selectedWeek === w.key ? null : w.key); }} style={{ background: "#fff", border: "0.5px solid #ddd", borderRadius: selectedWeek === w.key ? "10px 10px 0 0" : 10, padding: "12px 14px", marginBottom: selectedWeek === w.key ? 0 : 8, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}><span style={{ fontSize: 13, fontWeight: 500 }}>{w.label}</span><div style={{ display: "flex", alignItems: "center", gap: 8 }}>{omronData && <span style={{ fontSize: 11, color: "#2d7a4f", fontWeight: 500 }}>{omronData.weight} kg · {omronData.bf}% BF</span>}<span style={{ fontSize: 14, color: "#aaa" }}>{selectedWeek === w.key ? "^" : "v"}</span></div></div>{selectedWeek === w.key && <WeekDetail weekKey={w.key} omronData={omronData} onSaveOmron={onSaveOmron} />}</div>;
           })}
         </div>
       )}
@@ -652,9 +628,9 @@ function SettingsPanel({ config, onSave, onClose, onPatch }) {
     <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.5)", zIndex: 100, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
       <div style={{ background: "#f5f5f3", borderRadius: "16px 16px 0 0", padding: 16, width: "100%", maxWidth: 480, maxHeight: "85vh", overflowY: "auto" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}><span style={{ fontWeight: 500, fontSize: 16 }}>Settings</span><button onClick={onClose} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "#888" }}>×</button></div>
-        <Card><CardHdr left="App config (CONFIG)" /><div style={{ padding: 14 }}><div style={{ fontSize: 12, color: "#888", marginBottom: 8 }}>Paste CONFIG JSON to update athlete stats, nutrition targets, or Sheets endpoint.</div><textarea style={{ width: "100%", height: 80, padding: 10, border: "0.5px solid #ccc", borderRadius: 8, fontSize: 12, fontFamily: "monospace", resize: "vertical", marginBottom: 8 }} value={configInput} onChange={function(e) { setConfigInput(e.target.value); }} placeholder='{"athlete":{"weight":83.5,...}}' /><ActionBtn onClick={function() { setConfigErr(""); try { onSave(JSON.parse(configInput)); setConfigSaved(true); setTimeout(function() { setConfigSaved(false); }, 2000); } catch(e) { setConfigErr("Invalid JSON."); } }}>{configSaved ? "Saved" : "Save config"}</ActionBtn>{configErr && <div style={{ fontSize: 12, color: "#dc2626", marginTop: 6 }}>{configErr}</div>}</div></Card>
-        <Card><CardHdr left="Data patch" /><div style={{ padding: 14 }}><div style={{ fontSize: 12, color: "#888", marginBottom: 8 }}>Backfill meals, log calorie overrides, or write any one-off data entry.</div><textarea style={{ width: "100%", height: 80, padding: 10, border: "0.5px solid #ccc", borderRadius: 8, fontSize: 12, fontFamily: "monospace", resize: "vertical", marginBottom: 8 }} value={patchInput} onChange={function(e) { setPatchInput(e.target.value); }} placeholder='{"type":"nutrition_entry","date":"2026-04-01","meal":"Dinner","food":"Pizza","cal":850,"protein":32,"carbs":110,"fat":28,"eatOut":true}' /><ActionBtn onClick={function() { setPatchErr(""); try { onPatch(JSON.parse(patchInput)); setPatchSaved(true); setTimeout(function() { setPatchSaved(false); setPatchInput(""); }, 2000); } catch(e) { setPatchErr("Invalid JSON."); } }}>{patchSaved ? "Patched" : "Apply patch"}</ActionBtn>{patchErr && <div style={{ fontSize: 12, color: "#dc2626", marginTop: 6 }}>{patchErr}</div>}</div></Card>
-        <Card><CardHdr left="Current config" /><div style={{ padding: 14 }}>{[["Weight", config.athlete.weight + " kg"],["SMM", config.athlete.smm + " kg"],["BF%", config.athlete.bf + "%"],["Scan date", config.athlete.scanDate],["Cal training", config.nutrition.caloriesTraining + " kcal"],["Cal rest", config.nutrition.caloriesRest + " kcal"],["Protein", config.nutrition.protein + "g"],["HRmax", config.training.hmaxBpm + " bpm"],["PW correction", (config.training.pixelWatchCorrection * 100) + "%"],["Sheets", (config.sheets && config.sheets.endpoint) ? "✓ Connected" : "Not configured"]].map(function(item) { return <div key={item[0]} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "4px 0", borderBottom: "0.5px solid #f0f0f0" }}><span style={{ color: "#888" }}>{item[0]}</span><span style={{ fontWeight: 500, color: item[0] === "Sheets" && item[1] === "✓ Connected" ? "#2d7a4f" : "#1a1a1a" }}>{item[1]}</span></div>; })}</div></Card>
+        <Card><CardHdr left="App config (CONFIG)" /><div style={{ padding: 14 }}><div style={{ fontSize: 12, color: "#888", marginBottom: 8 }}>Paste CONFIG JSON to update athlete stats and nutrition targets.</div><textarea style={{ width: "100%", height: 80, padding: 10, border: "0.5px solid #ccc", borderRadius: 8, fontSize: 12, fontFamily: "monospace", resize: "vertical", marginBottom: 8 }} value={configInput} onChange={function(e) { setConfigInput(e.target.value); }} placeholder='{"athlete":{"weight":83.5,...}}' /><ActionBtn onClick={function() { setConfigErr(""); try { onSave(JSON.parse(configInput)); setConfigSaved(true); setTimeout(function() { setConfigSaved(false); }, 2000); } catch(e) { setConfigErr("Invalid JSON."); } }}>{configSaved ? "Saved" : "Save config"}</ActionBtn>{configErr && <div style={{ fontSize: 12, color: "#dc2626", marginTop: 6 }}>{configErr}</div>}</div></Card>
+        <Card><CardHdr left="Data patch" /><div style={{ padding: 14 }}><div style={{ fontSize: 12, color: "#888", marginBottom: 8 }}>Backfill meals or log calorie overrides.</div><textarea style={{ width: "100%", height: 80, padding: 10, border: "0.5px solid #ccc", borderRadius: 8, fontSize: 12, fontFamily: "monospace", resize: "vertical", marginBottom: 8 }} value={patchInput} onChange={function(e) { setPatchInput(e.target.value); }} placeholder='{"type":"nutrition_entry","date":"2026-04-01","meal":"Dinner","food":"Pizza","cal":850,"protein":32,"carbs":110,"fat":28}' /><ActionBtn onClick={function() { setPatchErr(""); try { onPatch(JSON.parse(patchInput)); setPatchSaved(true); setTimeout(function() { setPatchSaved(false); setPatchInput(""); }, 2000); } catch(e) { setPatchErr("Invalid JSON."); } }}>{patchSaved ? "Patched" : "Apply patch"}</ActionBtn>{patchErr && <div style={{ fontSize: 12, color: "#dc2626", marginTop: 6 }}>{patchErr}</div>}</div></Card>
+        <Card><CardHdr left="Current config" /><div style={{ padding: 14 }}>{[["Weight", config.athlete.weight + " kg"],["SMM", config.athlete.smm + " kg"],["BF%", config.athlete.bf + "%"],["Scan date", config.athlete.scanDate],["Cal training", config.nutrition.caloriesTraining + " kcal"],["Cal rest", config.nutrition.caloriesRest + " kcal"],["Protein", config.nutrition.protein + "g"],["HRmax", config.training.hmaxBpm + " bpm"],["PW correction", (config.training.pixelWatchCorrection * 100) + "%"]].map(function(item) { return <div key={item[0]} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "4px 0", borderBottom: "0.5px solid #f0f0f0" }}><span style={{ color: "#888" }}>{item[0]}</span><span style={{ fontWeight: 500 }}>{item[1]}</span></div>; })}</div></Card>
       </div>
     </div>
   );
@@ -662,77 +638,162 @@ function SettingsPanel({ config, onSave, onClose, onPatch }) {
 
 // ── ROOT ──────────────────────────────────────────────────────
 function App() {
-  var syncTimer = useRef(null);
-  var [tab, setTab] = useState("dashboard"); var [config, setConfig] = useState(DEFAULT_CONFIG);
-  var [trainHistory, setTrainHistory] = useState([]); var [todayLogs, setTodayLogs] = useState([]);
-  var [burnLogs, setBurnLogs] = useState({}); var [omronLogs, setOmronLogs] = useState({});
-  var [nutLogs, setNutLogs] = useState({}); var [calOverrides, setCalOverrides] = useState({});
-  var [lastSessionData, setLastSessionData] = useState({}); var [showSettings, setShowSettings] = useState(false);
-  var [storageReady, setStorageReady] = useState(false); var today = todayISO();
+  var [tab, setTab] = useState("dashboard");
+  var [config, setConfig] = useState(function() { try { var r = localStorage.getItem("hh_config"); return r ? JSON.parse(r) : DEFAULT_CONFIG; } catch(e) { return DEFAULT_CONFIG; } });
+  var [todayLogs, setTodayLogs] = useState([]);
+  var [burnLogs, setBurnLogs] = useState({});
+  var [omronLogs, setOmronLogs] = useState({});
+  var [calOverrides, setCalOverrides] = useState({});
+  var [weekSessions, setWeekSessions] = useState([]);
+  var [weeklyRow, setWeeklyRow] = useState(null);
+  var [lastSessionData, setLastSessionData] = useState({});
+  var [showSettings, setShowSettings] = useState(false);
+  var [loading, setLoading] = useState(true);
+  var today = todayISO();
+  var wk = getWeekKey(today);
 
+  // ── LOAD ON MOUNT ─────────────────────────────────────────
   useEffect(function() {
-    var r1 = storage.get("hh_config"); if (r1) { try { setConfig(JSON.parse(r1.value)); } catch(e) {} }
-    var r2 = storage.get("hh_nut_" + today); if (r2) { try { setTodayLogs(JSON.parse(r2.value)); } catch(e) {} }
-    var r3 = storage.get("hh_burn_logs"); if (r3) { try { setBurnLogs(JSON.parse(r3.value)); } catch(e) {} }
-    var r4 = storage.get("hh_omron_logs"); if (r4) { try { setOmronLogs(JSON.parse(r4.value)); } catch(e) {} }
-    var r5 = storage.get("hh_cal_overrides"); if (r5) { try { setCalOverrides(JSON.parse(r5.value)); } catch(e) {} }
-    var nutRes = storage.list("hh_nut_");
-    var nutMap = {};
-    nutRes.keys.forEach(function(k) { var r = storage.get(k); if (!r) return; try { var iso = k.replace("hh_nut_", ""); var entries = JSON.parse(r.value); var totals = entries.reduce(function(a, e) { return { cal: a.cal + (e.cal||0), protein: a.protein + (e.protein||0), carbs: a.carbs + (e.carbs||0), fat: a.fat + (e.fat||0), eatOut: (a.eatOut||0) + (e.eatOut ? 1 : 0), home: (a.home||0) + (e.eatOut ? 0 : 1), mealCount: (a.mealCount||0) + 1 }; }, { cal: 0, protein: 0, carbs: 0, fat: 0, eatOut: 0, home: 0, mealCount: 0 }); nutMap[iso] = totals; } catch(e) {} });
-    setNutLogs(nutMap);
-    var sessionRes = storage.list("hh_session_");
-    var recs = sessionRes.keys.map(function(k) { var r = storage.get(k); if (!r) return null; try { var rec = JSON.parse(r.value); return { date: rec.date, dateISO: rec.dateISO, title: rec.title, hrv: rec.hrv, rhr: rec.rhr, duration: rec.duration, difficulty: rec.difficulty, completion: rec.completion }; } catch(e) { return null; } }).filter(Boolean).sort(function(a, b) { return a.date.localeCompare(b.date); });
-    setTrainHistory(recs);
-    if (recs.length) { var lastKey = sessionRes.keys[sessionRes.keys.length - 1]; var lr = storage.get(lastKey); if (lr) { try { var last = JSON.parse(lr.value); var map = {}; if (last.blocks) last.blocks.forEach(function(b) { b.exercises.forEach(function(ex) { map[ex.name] = ex.sets; }); }); setLastSessionData(map); } catch(e) {} } }
-    setStorageReady(true);
+    async function load() {
+      try {
+        // Load config from localStorage
+        try { var cfg = localStorage.getItem("hh_config"); if (cfg) setConfig(JSON.parse(cfg)); } catch(e) {}
+        try { var co = localStorage.getItem("hh_cal_overrides"); if (co) setCalOverrides(JSON.parse(co)); } catch(e) {}
+
+        // Fetch today's data from sheet
+        var todayData = await sheetsGet("getToday", { date: today });
+        if (todayData && todayData.data) {
+          // Reconstruct todayLogs from meals
+          if (todayData.data.meals && todayData.data.meals.length) {
+            var meals = todayData.data.meals.map(function(m, i) {
+              return {
+                id: i + 1,
+                meal: m["Meal"] || "Breakfast",
+                food: m["Food"] || "",
+                cal: parseFloat(m["Calories"]) || 0,
+                protein: parseFloat(m["Protein (g)"]) || 0,
+                carbs: parseFloat(m["Carbs (g)"]) || 0,
+                fat: parseFloat(m["Fat (g)"]) || 0,
+                eatOut: m["Home/Eat-out"] === "Eat-out",
+                restaurantType: m["Restaurant Type"] || "",
+                description: m["Description"] || ""
+              };
+            });
+            setTodayLogs(meals);
+          }
+          // Get burn log for today
+          if (todayData.data.daily && todayData.data.daily["Calories Burned (raw)"]) {
+            setBurnLogs(function(prev) { var n = Object.assign({}, prev); n[today] = parseFloat(todayData.data.daily["Calories Burned (raw)"]); return n; });
+          }
+        }
+
+        // Fetch current week data
+        var weekData = await sheetsGet("getWeek", { weekKey: wk });
+        if (weekData && weekData.data) {
+          if (weekData.data.sessions) setWeekSessions(weekData.data.sessions);
+          if (weekData.data.weekly) setWeeklyRow(weekData.data.weekly);
+          if (weekData.data.omron) {
+            var omron = weekData.data.omron;
+            setOmronLogs(function(prev) { var n = Object.assign({}, prev); n[wk] = { weight: omron.weight, bf: omron.bf }; return n; });
+          }
+          // Build lastSessionData from most recent session
+          if (weekData.data.sessions && weekData.data.sessions.length) {
+            var lastSess = weekData.data.sessions[weekData.data.sessions.length - 1];
+            if (lastSess) setLastSessionData({});
+          }
+        }
+
+        // Fetch burn logs for calendar
+        var burnData = await sheetsGet("getBurnLogs", {});
+        if (burnData && burnData.data) setBurnLogs(burnData.data);
+
+      } catch(e) {
+        console.error("Load error:", e);
+      }
+      setLoading(false);
+    }
+    load();
   }, []);
 
-useEffect(function() {
-  if (!storageReady) return;
-  if (syncTimer.current) clearTimeout(syncTimer.current);
-  syncTimer.current = setTimeout(function() {
-    var eatOut = todayLogs.filter(function(e) { return e.eatOut; }).length;
-    var home = todayLogs.filter(function(e) { return !e.eatOut; }).length;
-    var totals = todayLogs.reduce(function(a, e) { return { cal: a.cal + (e.cal||0), protein: a.protein + (e.protein||0), carbs: a.carbs + (e.carbs||0), fat: a.fat + (e.fat||0) }; }, { cal: 0, protein: 0, carbs: 0, fat: 0 });
-    setNutLogs(function(prev) { var n = Object.assign({}, prev); n[today] = Object.assign({}, totals, { eatOut: eatOut, home: home, mealCount: todayLogs.length }); return n; });
-    storage.set("hh_nut_" + today, JSON.stringify(todayLogs));
-    var ep = config.sheets && config.sheets.endpoint;
-    if (ep && todayLogs.length > 0) {
-      var isTraining = trainHistory.some(function(s) { try { return s.dateISO === today || new Date(s.date + " UTC").toISOString().slice(0, 10) === today; } catch(e) { return false; } });
-      var calGoal = calOverrides[today] || (isTraining ? config.nutrition.caloriesTraining : config.nutrition.caloriesRest);
-      var burn = burnLogs[today]; var corrected = burn ? Math.round(burn * config.training.pixelWatchCorrection) : "";
-      var secret = config.sheets.secret || "heavyhybrid2026";
-      sheetsPost(ep, secret, "logDaily", { date: today, cal: totals.cal, protein: totals.protein, carbs: totals.carbs, fat: totals.fat, calGoal: calGoal, calDelta: totals.cal - calGoal, proteinGoal: config.nutrition.protein, proteinDelta: totals.protein - config.nutrition.protein, burned: burn || "", energyBalance: corrected ? totals.cal - corrected : "", eatOutMeals: eatOut }).catch(function() {});
-      sheetsPost(ep, secret, "logMeals", { date: today, calGoal: calGoal, proteinGoal: config.nutrition.protein, meals: todayLogs.map(function(e) { return { time: new Date().toLocaleTimeString("en", { hour: "2-digit", minute: "2-digit" }), meal: e.meal, food: e.food, cal: e.cal, protein: e.protein, carbs: e.carbs, fat: e.fat, eatOut: e.eatOut ? "Eat-out" : "Home", restaurantType: e.restaurantType || "", description: e.description || "" }; }) }).catch(function() {});
-      var weekly = calcWeeklySummary(nutLogs, trainHistory, burnLogs, config);
-      sheetsPost(ep, secret, "logWeekly", { weekKey: weekly.weekKey, weekStart: getWeekStart(today), daysLogged: weekly.daysLogged, avgCal: weekly.avgCal, avgProtein: weekly.avgProtein, proteinCompliance: weekly.proteinCompliance, calCompliance: weekly.calCompliance, eatOutMeals: weekly.eatOutMeals, homeMeals: weekly.homeMeals, totalMeals: weekly.totalMeals, sessions: weekly.sessions, totalDifficulty: weekly.totalDifficulty, avgBalance: weekly.avgBalance || "" }).catch(function() {});
-    }
-  }, 5000);
-}, [todayLogs, storageReady]);
+  // ── MEAL ACTIONS ──────────────────────────────────────────
+  function handleAddMeal(entry) {
+    var newLogs = todayLogs.concat([entry]);
+    setTodayLogs(newLogs);
+    // Write to sheet
+    var isTraining = weekSessions.some(function(s) { return s["Date"] === today; });
+    var calGoal = calOverrides[today] || (isTraining ? config.nutrition.caloriesTraining : config.nutrition.caloriesRest);
+    sheetsWrite("logMeals", {
+      date: today, calGoal: calGoal, proteinGoal: config.nutrition.protein,
+      meals: newLogs.map(function(e) { return { time: new Date().toLocaleTimeString("en", { hour: "2-digit", minute: "2-digit" }), meal: e.meal, food: e.food, cal: e.cal, protein: e.protein, carbs: e.carbs, fat: e.fat, eatOut: e.eatOut ? "Eat-out" : "Home", restaurantType: e.restaurantType || "", description: e.description || "" }; })
+    }).catch(function() {});
+    syncDaily(newLogs, calGoal);
+  }
 
-  useEffect(function() {
-    if (!storageReady) return;
-    var ep = config.sheets && config.sheets.endpoint; if (!ep) return;
-    var todayKey = getWeekKey(today); var entry = omronLogs[todayKey];
-    if (entry) sheetsPost(ep, config.sheets.secret || "heavyhybrid2026", "logBodyComp", { entryDate: entry.entryDate || today, weekNumber: todayKey, weight: entry.weight, bf: entry.bf }).catch(function() {});
-  }, [omronLogs, storageReady]);
+  function handleDeleteMeal(id) {
+    var newLogs = todayLogs.filter(function(e) { return e.id !== id; });
+    setTodayLogs(newLogs);
+    var isTraining = weekSessions.some(function(s) { return s["Date"] === today; });
+    var calGoal = calOverrides[today] || (isTraining ? config.nutrition.caloriesTraining : config.nutrition.caloriesRest);
+    sheetsWrite("logMeals", {
+      date: today, calGoal: calGoal, proteinGoal: config.nutrition.protein,
+      meals: newLogs.map(function(e) { return { time: "", meal: e.meal, food: e.food, cal: e.cal, protein: e.protein, carbs: e.carbs, fat: e.fat, eatOut: e.eatOut ? "Eat-out" : "Home", restaurantType: e.restaurantType || "", description: e.description || "" }; })
+    }).catch(function() {});
+    syncDaily(newLogs, calGoal);
+  }
 
-  function handleConfigSave(c) { setConfig(c); storage.set("hh_config", JSON.stringify(c)); }
+  function syncDaily(logs, calGoal) {
+    var totals = logs.reduce(function(a, e) { return { cal: a.cal + (e.cal||0), protein: a.protein + (e.protein||0), carbs: a.carbs + (e.carbs||0), fat: a.fat + (e.fat||0) }; }, { cal: 0, protein: 0, carbs: 0, fat: 0 });
+    var eatOut = logs.filter(function(e) { return e.eatOut; }).length;
+    var burn = burnLogs[today]; var corrected = burn ? Math.round(burn * config.training.pixelWatchCorrection) : "";
+    sheetsWrite("logDaily", { date: today, cal: totals.cal, protein: totals.protein, carbs: totals.carbs, fat: totals.fat, calGoal: calGoal, calDelta: totals.cal - calGoal, proteinGoal: config.nutrition.protein, proteinDelta: totals.protein - config.nutrition.protein, burned: burn || "", energyBalance: corrected ? totals.cal - corrected : "", eatOutMeals: eatOut }).catch(function() {});
+  }
+
+  // ── BURN LOG ──────────────────────────────────────────────
+  function handleSaveBurn(iso, value) {
+    var updated = Object.assign({}, burnLogs); updated[iso] = value;
+    setBurnLogs(updated);
+    sheetsWrite("logDaily", { date: iso, burned: value }).catch(function() {});
+  }
+
+  // ── OMRON ─────────────────────────────────────────────────
+  function handleSaveOmron(weekKey, weight, bf) {
+    setOmronLogs(function(prev) { var n = Object.assign({}, prev); n[weekKey] = { weight: weight, bf: bf }; return n; });
+    sheetsWrite("logBodyComp", { entryDate: today, weekNumber: weekKey, weight: weight, bf: bf }).catch(function() {});
+  }
+
+  // ── SESSION SAVED ─────────────────────────────────────────
+  function handleSessionSaved(rec) {
+    setWeekSessions(function(prev) { return prev.concat([{ "Date": rec.date, "Session Title": rec.title, "Difficulty (kg)": rec.difficulty, "Completion (%)": rec.completion, "Actual Duration (min)": rec.duration, dateISO: rec.dateISO }]); });
+  }
+
+  // ── CONFIG & PATCH ────────────────────────────────────────
+  function handleConfigSave(c) { setConfig(c); localStorage.setItem("hh_config", JSON.stringify(c)); }
   function handlePatch(patch) {
     if (patch.type === "nutrition_entry") {
       var entry = { id: Date.now(), meal: patch.meal, food: patch.food, cal: patch.cal, protein: patch.protein, carbs: patch.carbs, fat: patch.fat, eatOut: patch.eatOut || false, restaurantType: patch.restaurantType || "", description: patch.description || "" };
-      var patchDate = patch.date || today;
-      if (patchDate === today) { setTodayLogs(function(prev) { return prev.concat([entry]); }); }
-      else { var dayKey = "hh_nut_" + patchDate; var r = storage.get(dayKey); var existing = (r && r.value) ? JSON.parse(r.value) : []; existing.push(entry); storage.set(dayKey, JSON.stringify(existing)); var totals = existing.reduce(function(a, e) { return { cal: a.cal + (e.cal||0), protein: a.protein + (e.protein||0), carbs: a.carbs + (e.carbs||0), fat: a.fat + (e.fat||0), eatOut: (a.eatOut||0) + (e.eatOut ? 1 : 0), home: (a.home||0) + (e.eatOut ? 0 : 1), mealCount: (a.mealCount||0) + 1 }; }, { cal: 0, protein: 0, carbs: 0, fat: 0, eatOut: 0, home: 0, mealCount: 0 }); setNutLogs(function(prev) { var n = Object.assign({}, prev); n[patchDate] = totals; return n; }); }
-    } else if (patch.type === "calorie_override") { var updated = Object.assign({}, calOverrides); updated[patch.date] = patch.caloriesOverride; setCalOverrides(updated); storage.set("hh_cal_overrides", JSON.stringify(updated)); }
+      if (!patch.date || patch.date === today) { handleAddMeal(entry); }
+      else {
+        sheetsWrite("logMeals", { date: patch.date, calGoal: config.nutrition.caloriesRest, proteinGoal: config.nutrition.protein, meals: [{ time: "", meal: entry.meal, food: entry.food, cal: entry.cal, protein: entry.protein, carbs: entry.carbs, fat: entry.fat, eatOut: entry.eatOut ? "Eat-out" : "Home", restaurantType: entry.restaurantType, description: entry.description }] }).catch(function() {});
+      }
+    } else if (patch.type === "calorie_override") {
+      var updated = Object.assign({}, calOverrides); updated[patch.date] = patch.caloriesOverride;
+      setCalOverrides(updated); localStorage.setItem("hh_cal_overrides", JSON.stringify(updated));
+    }
   }
 
-  var isTrainingDay = trainHistory.some(function(s) { try { return s.dateISO === today || new Date(s.date + " UTC").toISOString().slice(0, 10) === today; } catch(e) { return false; } });
+  var isTrainingDay = weekSessions.some(function(s) { return s["Date"] === today || s.dateISO === today; });
   var calOverrideToday = calOverrides[today] || null;
   var calGoal = calOverrideToday || (isTrainingDay ? config.nutrition.caloriesTraining : config.nutrition.caloriesRest);
   var carbGoal = isTrainingDay ? config.nutrition.carbsTraining : config.nutrition.carbsRest;
   var fatGoal = isTrainingDay ? config.nutrition.fatTraining : config.nutrition.fatRest;
-  var todayTotals = todayLogs.reduce(function(a, e) { return { cal: a.cal + (e.cal||0), protein: a.protein + (e.protein||0), carbs: a.carbs + (e.carbs||0), fat: a.fat + (e.fat||0) }; }, { cal: 0, protein: 0, carbs: 0, fat: 0 });
+
+  if (loading) return (
+    <div style={{ fontFamily: "system-ui,sans-serif", background: "#f5f5f3", minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ fontSize: 20, fontWeight: 500, marginBottom: 24 }}>Heavy Hybrid</div>
+      <Loader />
+      <div style={{ fontSize: 13, color: "#aaa", marginTop: 16 }}>Loading your data...</div>
+    </div>
+  );
 
   return (
     <div style={{ fontFamily: "system-ui,sans-serif", background: "#f5f5f3", color: "#1a1a1a", minHeight: "100vh", maxWidth: 480, margin: "0 auto", padding: 12 }}>
@@ -746,10 +807,10 @@ useEffect(function() {
       <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
         {[["dashboard","Dashboard"],["nutrition","Nutrition"],["training","Training"],["calendar","Calendar"]].map(function(item) { return <button key={item[0]} onClick={function() { setTab(item[0]); }} style={{ flex: 1, padding: "9px 0", borderRadius: 20, border: "0.5px solid " + (tab === item[0] ? "#1a1a1a" : "#ddd"), cursor: "pointer", fontWeight: 500, fontSize: 13, background: tab === item[0] ? "#1a1a1a" : "#fff", color: tab === item[0] ? "#fff" : "#888" }}>{item[1]}</button>; })}
       </div>
-      {tab === "dashboard" && <Dashboard config={config} todayNutTotals={todayTotals} calGoal={calGoal} carbGoal={carbGoal} fatGoal={fatGoal} isTrainingDay={isTrainingDay} trainHistory={trainHistory} onTabChange={setTab} nutLogs={nutLogs} burnLogs={burnLogs} />}
-      {tab === "nutrition" && <NutritionTab config={config} todayLogs={todayLogs} setTodayLogs={setTodayLogs} isTrainingDay={isTrainingDay} calOverride={calOverrideToday} />}
-      {tab === "training" && <TrainingTab config={config} onSessionSaved={function(rec) { setTrainHistory(function(h) { return h.concat([{ date: rec.date, dateISO: rec.dateISO, title: rec.title, hrv: rec.hrv, rhr: rec.rhr, duration: rec.duration, difficulty: rec.difficulty, completion: rec.completion }]); }); }} lastSessionData={lastSessionData} />}
-      {tab === "calendar" && <CalendarTab config={config} burnLogs={burnLogs} setBurnLogs={setBurnLogs} trainHistory={trainHistory} omronLogs={omronLogs} setOmronLogs={setOmronLogs} nutLogs={nutLogs} />}
+      {tab === "dashboard" && <Dashboard config={config} todayLogs={todayLogs} calGoal={calGoal} carbGoal={carbGoal} fatGoal={fatGoal} isTrainingDay={isTrainingDay} weekSessions={weekSessions} burnLogs={burnLogs} weeklyRow={weeklyRow} onTabChange={setTab} />}
+      {tab === "nutrition" && <NutritionTab config={config} todayLogs={todayLogs} onAddMeal={handleAddMeal} onDeleteMeal={handleDeleteMeal} isTrainingDay={isTrainingDay} calOverride={calOverrideToday} />}
+      {tab === "training" && <TrainingTab config={config} onSessionSaved={handleSessionSaved} lastSessionData={lastSessionData} />}
+      {tab === "calendar" && <CalendarTab config={config} burnLogs={burnLogs} onSaveBurn={handleSaveBurn} trainHistory={weekSessions} omronLogs={omronLogs} onSaveOmron={handleSaveOmron} />}
       {showSettings && <SettingsPanel config={config} onSave={handleConfigSave} onClose={function() { setShowSettings(false); }} onPatch={handlePatch} />}
     </div>
   );
