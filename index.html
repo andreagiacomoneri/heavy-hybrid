@@ -640,7 +640,7 @@ function SettingsPanel({ config, onSave, onClose, onPatch }) {
 function App() {
   var [tab, setTab] = useState("dashboard");
   var [config, setConfig] = useState(function() { try { var r = localStorage.getItem("hh_config"); return r ? JSON.parse(r) : DEFAULT_CONFIG; } catch(e) { return DEFAULT_CONFIG; } });
-  var [todayISO()Logs, setTodayLogs] = useState([]);
+  var [todayLogs, setTodayLogs] = useState([]);
   var [burnLogs, setBurnLogs] = useState({});
   var [omronLogs, setOmronLogs] = useState({});
   var [calOverrides, setCalOverrides] = useState({});
