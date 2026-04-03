@@ -686,24 +686,27 @@ function App() {
     setStorageReady(true);
   }, []);
 
-  useEffect(function() {
+useEffect(function() {
     if (!storageReady) return;
-    var eatOut = todayLogs.filter(function(e) { return e.eatOut; }).length;
-    var home = todayLogs.filter(function(e) { return !e.eatOut; }).length;
-    var totals = todayLogs.reduce(function(a, e) { return { cal: a.cal + (e.cal||0), protein: a.protein + (e.protein||0), carbs: a.carbs + (e.carbs||0), fat: a.fat + (e.fat||0) }; }, { cal: 0, protein: 0, carbs: 0, fat: 0 });
-    setNutLogs(function(prev) { var n = Object.assign({}, prev); n[today] = Object.assign({}, totals, { eatOut: eatOut, home: home, mealCount: todayLogs.length }); return n; });
-    storage.set("hh_nut_" + today, JSON.stringify(todayLogs));
-    var ep = config.sheets && config.sheets.endpoint;
-    if (ep && todayLogs.length > 0) {
-      var isTraining = trainHistory.some(function(s) { try { return s.dateISO === today || new Date(s.date + " UTC").toISOString().slice(0, 10) === today; } catch(e) { return false; } });
-      var calGoal = calOverrides[today] || (isTraining ? config.nutrition.caloriesTraining : config.nutrition.caloriesRest);
-      var burn = burnLogs[today]; var corrected = burn ? Math.round(burn * config.training.pixelWatchCorrection) : "";
-      var secret = config.sheets.secret || "heavyhybrid2026";
-      sheetsPost(ep, secret, "logDaily", { date: today, cal: totals.cal, protein: totals.protein, carbs: totals.carbs, fat: totals.fat, calGoal: calGoal, calDelta: totals.cal - calGoal, proteinGoal: config.nutrition.protein, proteinDelta: totals.protein - config.nutrition.protein, burned: burn || "", energyBalance: corrected ? totals.cal - corrected : "", eatOutMeals: eatOut }).catch(function() {});
-      sheetsPost(ep, secret, "logMeals", { date: today, calGoal: calGoal, proteinGoal: config.nutrition.protein, meals: todayLogs.map(function(e) { return { time: new Date().toLocaleTimeString("en", { hour: "2-digit", minute: "2-digit" }), meal: e.meal, food: e.food, cal: e.cal, protein: e.protein, carbs: e.carbs, fat: e.fat, eatOut: e.eatOut ? "Eat-out" : "Home", restaurantType: e.restaurantType || "", description: e.description || "" }; }) }).catch(function() {});
-      var weekly = calcWeeklySummary(nutLogs, trainHistory, burnLogs, config);
-      sheetsPost(ep, secret, "logWeekly", { weekKey: weekly.weekKey, weekStart: getWeekStart(today), daysLogged: weekly.daysLogged, avgCal: weekly.avgCal, avgProtein: weekly.avgProtein, proteinCompliance: weekly.proteinCompliance, calCompliance: weekly.calCompliance, eatOutMeals: weekly.eatOutMeals, homeMeals: weekly.homeMeals, totalMeals: weekly.totalMeals, sessions: weekly.sessions, totalDifficulty: weekly.totalDifficulty, avgBalance: weekly.avgBalance || "" }).catch(function() {});
-    }
+    var timer = setTimeout(function() {
+      var eatOut = todayLogs.filter(function(e) { return e.eatOut; }).length;
+      var home = todayLogs.filter(function(e) { return !e.eatOut; }).length;
+      var totals = todayLogs.reduce(function(a, e) { return { cal: a.cal + (e.cal||0), protein: a.protein + (e.protein||0), carbs: a.carbs + (e.carbs||0), fat: a.fat + (e.fat||0) }; }, { cal: 0, protein: 0, carbs: 0, fat: 0 });
+      setNutLogs(function(prev) { var n = Object.assign({}, prev); n[today] = Object.assign({}, totals, { eatOut: eatOut, home: home, mealCount: todayLogs.length }); return n; });
+      storage.set("hh_nut_" + today, JSON.stringify(todayLogs));
+      var ep = config.sheets && config.sheets.endpoint;
+      if (ep && todayLogs.length > 0) {
+        var isTraining = trainHistory.some(function(s) { try { return s.dateISO === today || new Date(s.date + " UTC").toISOString().slice(0, 10) === today; } catch(e) { return false; } });
+        var calGoal = calOverrides[today] || (isTraining ? config.nutrition.caloriesTraining : config.nutrition.caloriesRest);
+        var burn = burnLogs[today]; var corrected = burn ? Math.round(burn * config.training.pixelWatchCorrection) : "";
+        var secret = config.sheets.secret || "heavyhybrid2026";
+        sheetsPost(ep, secret, "logDaily", { date: today, cal: totals.cal, protein: totals.protein, carbs: totals.carbs, fat: totals.fat, calGoal: calGoal, calDelta: totals.cal - calGoal, proteinGoal: config.nutrition.protein, proteinDelta: totals.protein - config.nutrition.protein, burned: burn || "", energyBalance: corrected ? totals.cal - corrected : "", eatOutMeals: eatOut }).catch(function() {});
+        sheetsPost(ep, secret, "logMeals", { date: today, calGoal: calGoal, proteinGoal: config.nutrition.protein, meals: todayLogs.map(function(e) { return { time: new Date().toLocaleTimeString("en", { hour: "2-digit", minute: "2-digit" }), meal: e.meal, food: e.food, cal: e.cal, protein: e.protein, carbs: e.carbs, fat: e.fat, eatOut: e.eatOut ? "Eat-out" : "Home", restaurantType: e.restaurantType || "", description: e.description || "" }; }) }).catch(function() {});
+        var weekly = calcWeeklySummary(nutLogs, trainHistory, burnLogs, config);
+        sheetsPost(ep, secret, "logWeekly", { weekKey: weekly.weekKey, weekStart: getWeekStart(today), daysLogged: weekly.daysLogged, avgCal: weekly.avgCal, avgProtein: weekly.avgProtein, proteinCompliance: weekly.proteinCompliance, calCompliance: weekly.calCompliance, eatOutMeals: weekly.eatOutMeals, homeMeals: weekly.homeMeals, totalMeals: weekly.totalMeals, sessions: weekly.sessions, totalDifficulty: weekly.totalDifficulty, avgBalance: weekly.avgBalance || "" }).catch(function() {});
+      }
+    }, 10000);
+    return function() { clearTimeout(timer); };
   }, [todayLogs, storageReady]);
 
   useEffect(function() {
