@@ -652,6 +652,17 @@ function App() {
   var today = todayISO();
   var wk = getWeekKey(today);
 
+  // ── DATE CHANGE DETECTION ─────────────────────────────────
+  var loadedDate = useRef(todayISO());
+  useEffect(function() {
+    var interval = setInterval(function() {
+      if (todayISO() !== loadedDate.current) {
+        window.location.reload();
+      }
+    }, 60000);
+    return function() { clearInterval(interval); };
+  }, []);
+
   // ── LOAD ON MOUNT ─────────────────────────────────────────
   useEffect(function() {
     async function load() {
