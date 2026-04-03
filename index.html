@@ -641,10 +641,14 @@ function App() {
         var todayData = await sheetsGet("getToday", { date: td });
         if (todayData && todayData.data) {
           if (todayData.data.meals && todayData.data.meals.length) {
-            setTodayLogs(todayData.data.meals.map(function(m, i) {
-              return { id: i + 1, meal: m["Meal"] || "Breakfast", food: m["Food"] || "", cal: parseFloat(m["Calories"]) || 0, protein: parseFloat(m["Protein (g)"]) || 0, carbs: parseFloat(m["Carbs (g)"]) || 0, fat: parseFloat(m["Fat (g)"]) || 0, eatOut: m["Home/Eat-out"] === "Eat-out", restaurantType: m["Restaurant Type"] || "", description: m["Description"] || "" };
-            }));
-          }
+              var mealDate = todayData.data.meals[0] && todayData.data.meals[0]["Date"];
+              var mealDateStr = mealDate ? String(mealDate).trim().slice(0, 10) : "";
+              if (mealDateStr === td) {
+                 setTodayLogs(todayData.data.meals.map(function(m, i) {
+                     return { id: i + 1, meal: m["Meal"] || "Breakfast", food: m["Food"] || "", cal: parseFloat(m["Calories"]) || 0, protein: parseFloat(m["Protein (g)"]) || 0, carbs: parseFloat(m["Carbs (g)"]) || 0, fat: parseFloat(m["Fat (g)"]) || 0, eatOut: m["Home/Eat-out"] === "Eat-out", restaurantType: m["Restaurant Type"] || "", description: m["Description"] || "" };
+                  }));
+                }
+               }
           if (todayData.data.daily && todayData.data.daily["Calories Burned (raw)"]) {
             setBurnLogs(function(prev) { var n = Object.assign({}, prev); n[td] = parseFloat(todayData.data.daily["Calories Burned (raw)"]); return n; });
           }
