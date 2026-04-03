@@ -593,7 +593,7 @@ function CalendarTab({ config, burnLogs, onSaveBurn, trainHistory, omronLogs, on
             {Array.from({ length: firstDay }, function(_, i) { return <div key={"b" + i} />; })}
             {Array.from({ length: daysInMonth }, function(_, i) {
               var day = i + 1; var iso = year + "-" + String(month + 1).padStart(2, "0") + "-" + String(day).padStart(2, "0");
-              var isToday = iso === today, isSelected = iso === selectedISO;
+              var isToday = iso === todayISO(), isSelected = iso === selectedISO;
               var hasSession = trainHistory.some(function(s) { return s["Date"] === iso || s.dateISO === iso; });
               var hasBurn = !!burnLogs[iso];
               return <div key={day} onClick={function() { setSelectedISO(isSelected ? null : iso); }} style={{ background: hasBurn ? "#dbeafe" : "#f9f9f7", borderRadius: 8, padding: "5px 3px", minHeight: 44, border: isSelected ? "2px solid #1a1a1a" : isToday ? "2px solid #888" : "0.5px solid #e0e0e0", cursor: "pointer" }}><div style={{ fontSize: 12, fontWeight: isToday ? 700 : 400, textAlign: "center" }}>{day}</div>{hasSession && <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#2d7a4f", margin: "2px auto 0" }} />}</div>;
@@ -640,7 +640,7 @@ function SettingsPanel({ config, onSave, onClose, onPatch }) {
 function App() {
   var [tab, setTab] = useState("dashboard");
   var [config, setConfig] = useState(function() { try { var r = localStorage.getItem("hh_config"); return r ? JSON.parse(r) : DEFAULT_CONFIG; } catch(e) { return DEFAULT_CONFIG; } });
-  var [todayLogs, setTodayLogs] = useState([]);
+  var [todayISO()Logs, setTodayLogs] = useState([]);
   var [burnLogs, setBurnLogs] = useState({});
   var [omronLogs, setOmronLogs] = useState({});
   var [calOverrides, setCalOverrides] = useState({});
@@ -670,7 +670,7 @@ function App() {
         try { var co = localStorage.getItem("hh_cal_overrides"); if (co) setCalOverrides(JSON.parse(co)); } catch(e) {}
 
         // Fetch today's data from sheet
-        var todayData = await sheetsGet("getToday", { date: todayISO() });
+        var todayData = await sheetsGet("getToday", { date: todayISO()ISO() });
         if (todayData && todayData.data) {
           // Reconstruct todayLogs from meals
           if (todayData.data.meals && todayData.data.meals.length) {
@@ -692,7 +692,7 @@ function App() {
           }
           // Get burn log for today
           if (todayData.data.daily && todayData.data.daily["Calories Burned (raw)"]) {
-          setBurnLogs(function(prev) { var n = Object.assign({}, prev); n[todayISO()] = parseFloat(todayData.data.daily["Calories Burned (raw)"]); return n; });
+          setBurnLogs(function(prev) { var n = Object.assign({}, prev); n[todayISO()ISO()] = parseFloat(todayData.data.daily["Calories Burned (raw)"]); return n; });
           }
         }
 
@@ -729,10 +729,10 @@ function App() {
     var newLogs = todayLogs.concat([entry]);
     setTodayLogs(newLogs);
     // Write to sheet
-   var isTraining = weekSessions.some(function(s) { return s["Date"] === todayISO(); });
-   var calGoal = calOverrides[todayISO()] || (isTraining ? config.nutrition.caloriesTraining : config.nutrition.caloriesRest); 
+   var isTraining = weekSessions.some(function(s) { return s["Date"] === todayISO()ISO(); });
+   var calGoal = calOverrides[todayISO()ISO()] || (isTraining ? config.nutrition.caloriesTraining : config.nutrition.caloriesRest); 
    sheetsWrite("logMeals", {
-      date: today, calGoal: calGoal, proteinGoal: config.nutrition.protein,
+      date: todayISO(), calGoal: calGoal, proteinGoal: config.nutrition.protein,
       meals: newLogs.map(function(e) { return { time: new Date().toLocaleTimeString("en", { hour: "2-digit", minute: "2-digit" }), meal: e.meal, food: e.food, cal: e.cal, protein: e.protein, carbs: e.carbs, fat: e.fat, eatOut: e.eatOut ? "Eat-out" : "Home", restaurantType: e.restaurantType || "", description: e.description || "" }; })
     }).catch(function() {});
     syncDaily(newLogs, calGoal);
@@ -741,9 +741,9 @@ function App() {
   function handleDeleteMeal(id) {
     var newLogs = todayLogs.filter(function(e) { return e.id !== id; });
     setTodayLogs(newLogs);
-    var isTraining = weekSessions.some(function(s) { return s["Date"] === todayISO(); });
-    var calGoal = calOverrides[todayISO()] || (isTraining ? config.nutrition.caloriesTraining : config.nutrition.caloriesRest);    sheetsWrite("logMeals", {
-      date: today, calGoal: calGoal, proteinGoal: config.nutrition.protein,
+    var isTraining = weekSessions.some(function(s) { return s["Date"] === todayISO()ISO(); });
+    var calGoal = calOverrides[todayISO()ISO()] || (isTraining ? config.nutrition.caloriesTraining : config.nutrition.caloriesRest);    sheetsWrite("logMeals", {
+      date: todayISO(), calGoal: calGoal, proteinGoal: config.nutrition.protein,
       meals: newLogs.map(function(e) { return { time: "", meal: e.meal, food: e.food, cal: e.cal, protein: e.protein, carbs: e.carbs, fat: e.fat, eatOut: e.eatOut ? "Eat-out" : "Home", restaurantType: e.restaurantType || "", description: e.description || "" }; })
     }).catch(function() {});
     syncDaily(newLogs, calGoal);
@@ -752,8 +752,8 @@ function App() {
   function syncDaily(logs, calGoal) {
     var totals = logs.reduce(function(a, e) { return { cal: a.cal + (e.cal||0), protein: a.protein + (e.protein||0), carbs: a.carbs + (e.carbs||0), fat: a.fat + (e.fat||0) }; }, { cal: 0, protein: 0, carbs: 0, fat: 0 });
     var eatOut = logs.filter(function(e) { return e.eatOut; }).length;
-    var burn = burnLogs[today]; var corrected = burn ? Math.round(burn * config.training.pixelWatchCorrection) : "";
-    sheetsWrite("logDaily", { date: today, cal: totals.cal, protein: totals.protein, carbs: totals.carbs, fat: totals.fat, calGoal: calGoal, calDelta: totals.cal - calGoal, proteinGoal: config.nutrition.protein, proteinDelta: totals.protein - config.nutrition.protein, burned: burn || "", energyBalance: corrected ? totals.cal - corrected : "", eatOutMeals: eatOut }).catch(function() {});
+    var burn = burnLogs[todayISO()ISO()]; var corrected = burn ? Math.round(burn * config.training.pixelWatchCorrection) : "";
+    sheetsWrite("logDaily", { date: todayISO(), cal: totals.cal, protein: totals.protein, carbs: totals.carbs, fat: totals.fat, calGoal: calGoal, calDelta: totals.cal - calGoal, proteinGoal: config.nutrition.protein, proteinDelta: totals.protein - config.nutrition.protein, burned: burn || "", energyBalance: corrected ? totals.cal - corrected : "", eatOutMeals: eatOut }).catch(function() {});
   }
 
   // ── BURN LOG ──────────────────────────────────────────────
@@ -766,7 +766,7 @@ function App() {
   // ── OMRON ─────────────────────────────────────────────────
   function handleSaveOmron(weekKey, weight, bf) {
     setOmronLogs(function(prev) { var n = Object.assign({}, prev); n[weekKey] = { weight: weight, bf: bf }; return n; });
-    sheetsWrite("logBodyComp", { entryDate: today, weekNumber: weekKey, weight: weight, bf: bf }).catch(function() {});
+    sheetsWrite("logBodyComp", { entryDate: todayISO(), weekNumber: weekKey, weight: weight, bf: bf }).catch(function() {});
   }
 
   // ── SESSION SAVED ─────────────────────────────────────────
@@ -779,7 +779,7 @@ function App() {
   function handlePatch(patch) {
     if (patch.type === "nutrition_entry") {
       var entry = { id: Date.now(), meal: patch.meal, food: patch.food, cal: patch.cal, protein: patch.protein, carbs: patch.carbs, fat: patch.fat, eatOut: patch.eatOut || false, restaurantType: patch.restaurantType || "", description: patch.description || "" };
-      if (!patch.date || patch.date === today) { handleAddMeal(entry); }
+      if (!patch.date || patch.date === todayISO()) { handleAddMeal(entry); }
       else {
         sheetsWrite("logMeals", { date: patch.date, calGoal: config.nutrition.caloriesRest, proteinGoal: config.nutrition.protein, meals: [{ time: "", meal: entry.meal, food: entry.food, cal: entry.cal, protein: entry.protein, carbs: entry.carbs, fat: entry.fat, eatOut: entry.eatOut ? "Eat-out" : "Home", restaurantType: entry.restaurantType, description: entry.description }] }).catch(function() {});
       }
@@ -789,8 +789,8 @@ function App() {
     }
   }
 
-  var isTrainingDay = weekSessions.some(function(s) { return s["Date"] === todayISO() || s.dateISO === todayISO(); });
-  var calOverrideToday = calOverrides[todayISO()] || null;
+  var isTrainingDay = weekSessions.some(function(s) { return s["Date"] === todayISO()ISO() || s.dateISO === todayISO()ISO(); });
+  var calOverrideToday = calOverrides[todayISO()ISO()] || null;
   var calGoal = calOverrideToday || (isTrainingDay ? config.nutrition.caloriesTraining : config.nutrition.caloriesRest);
   var carbGoal = isTrainingDay ? config.nutrition.carbsTraining : config.nutrition.carbsRest;
   var fatGoal = isTrainingDay ? config.nutrition.fatTraining : config.nutrition.fatRest;
