@@ -673,7 +673,7 @@ function App() {
         try { var co = localStorage.getItem("hh_cal_overrides"); if (co) setCalOverrides(JSON.parse(co)); } catch(e) {}
 
         // Fetch today's data from sheet
-        var todayData = await sheetsGet("getToday", { date: todayISO()ISO() });
+        var todayData = await sheetsGet("getToday", { date: today });
         if (todayData && todayData.data) {
           // Reconstruct todayLogs from meals
           if (todayData.data.meals && todayData.data.meals.length) {
@@ -695,7 +695,7 @@ function App() {
           }
           // Get burn log for today
           if (todayData.data.daily && todayData.data.daily["Calories Burned (raw)"]) {
-          setBurnLogs(function(prev) { var n = Object.assign({}, prev); n[todayISO()ISO()] = parseFloat(todayData.data.daily["Calories Burned (raw)"]); return n; });
+          setBurnLogs(function(prev) { var n = Object.assign({}, prev); n[today] = parseFloat(todayData.data.daily["Calories Burned (raw)"]); return n; });
           }
         }
 
@@ -732,8 +732,8 @@ function App() {
     var newLogs = todayLogs.concat([entry]);
     setTodayLogs(newLogs);
     // Write to sheet
-   var isTraining = weekSessions.some(function(s) { return s["Date"] === todayISO()ISO(); });
-   var calGoal = calOverrides[todayISO()ISO()] || (isTraining ? config.nutrition.caloriesTraining : config.nutrition.caloriesRest); 
+   var isTraining = weekSessions.some(function(s) { return s["Date"] === today; });
+   var calGoal = calOverrides[today] || (isTraining ? config.nutrition.caloriesTraining : config.nutrition.caloriesRest); 
    sheetsWrite("logMeals", {
       date: todayISO(), calGoal: calGoal, proteinGoal: config.nutrition.protein,
       meals: newLogs.map(function(e) { return { time: new Date().toLocaleTimeString("en", { hour: "2-digit", minute: "2-digit" }), meal: e.meal, food: e.food, cal: e.cal, protein: e.protein, carbs: e.carbs, fat: e.fat, eatOut: e.eatOut ? "Eat-out" : "Home", restaurantType: e.restaurantType || "", description: e.description || "" }; })
@@ -744,8 +744,8 @@ function App() {
   function handleDeleteMeal(id) {
     var newLogs = todayLogs.filter(function(e) { return e.id !== id; });
     setTodayLogs(newLogs);
-    var isTraining = weekSessions.some(function(s) { return s["Date"] === todayISO()ISO(); });
-    var calGoal = calOverrides[todayISO()ISO()] || (isTraining ? config.nutrition.caloriesTraining : config.nutrition.caloriesRest);    sheetsWrite("logMeals", {
+    var isTraining = weekSessions.some(function(s) { return s["Date"] === today; });
+    var calGoal = calOverrides[today] || (isTraining ? config.nutrition.caloriesTraining : config.nutrition.caloriesRest);    sheetsWrite("logMeals", {
       date: todayISO(), calGoal: calGoal, proteinGoal: config.nutrition.protein,
       meals: newLogs.map(function(e) { return { time: "", meal: e.meal, food: e.food, cal: e.cal, protein: e.protein, carbs: e.carbs, fat: e.fat, eatOut: e.eatOut ? "Eat-out" : "Home", restaurantType: e.restaurantType || "", description: e.description || "" }; })
     }).catch(function() {});
@@ -755,7 +755,7 @@ function App() {
   function syncDaily(logs, calGoal) {
     var totals = logs.reduce(function(a, e) { return { cal: a.cal + (e.cal||0), protein: a.protein + (e.protein||0), carbs: a.carbs + (e.carbs||0), fat: a.fat + (e.fat||0) }; }, { cal: 0, protein: 0, carbs: 0, fat: 0 });
     var eatOut = logs.filter(function(e) { return e.eatOut; }).length;
-    var burn = burnLogs[todayISO()ISO()]; var corrected = burn ? Math.round(burn * config.training.pixelWatchCorrection) : "";
+    var burn = burnLogs[today]; var corrected = burn ? Math.round(burn * config.training.pixelWatchCorrection) : "";
     sheetsWrite("logDaily", { date: todayISO(), cal: totals.cal, protein: totals.protein, carbs: totals.carbs, fat: totals.fat, calGoal: calGoal, calDelta: totals.cal - calGoal, proteinGoal: config.nutrition.protein, proteinDelta: totals.protein - config.nutrition.protein, burned: burn || "", energyBalance: corrected ? totals.cal - corrected : "", eatOutMeals: eatOut }).catch(function() {});
   }
 
@@ -792,8 +792,8 @@ function App() {
     }
   }
 
-  var isTrainingDay = weekSessions.some(function(s) { return s["Date"] === todayISO()ISO() || s.dateISO === todayISO()ISO(); });
-  var calOverrideToday = calOverrides[todayISO()ISO()] || null;
+  var isTrainingDay = weekSessions.some(function(s) { return s["Date"] === today || s.dateISO === today; });
+  var calOverrideToday = calOverrides[today] || null;
   var calGoal = calOverrideToday || (isTrainingDay ? config.nutrition.caloriesTraining : config.nutrition.caloriesRest);
   var carbGoal = isTrainingDay ? config.nutrition.carbsTraining : config.nutrition.carbsRest;
   var fatGoal = isTrainingDay ? config.nutrition.fatTraining : config.nutrition.fatRest;
