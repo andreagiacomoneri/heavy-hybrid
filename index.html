@@ -661,6 +661,9 @@ function App() {
     return function() { clearInterval(interval); };
   }, []);
 
+  var today = todayISO();
+  var wk = getWeekKey(today);
+
   // ── LOAD ON MOUNT ─────────────────────────────────────────
   useEffect(function() {
     async function load() {
