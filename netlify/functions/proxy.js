@@ -97,11 +97,15 @@ async function handleSheets(event) {
 async function handleSupabase(event) {
   const { action, table, data, filters } = JSON.parse(event.body);
 
+  const prefer =
+    action === "upsert" ? "resolution=merge-duplicates,return=representation" :
+    action === "insert" ? "return=representation" : "";
+
   const headers = {
     "Content-Type":  "application/json",
     "apikey":        SUPABASE_KEY,
     "Authorization": `Bearer ${SUPABASE_KEY}`,
-    "Prefer":        action === "upsert" ? "resolution=merge-duplicates" : "",
+    "Prefer":        prefer,
   };
 
   let url = `${SUPABASE_REST}/${table}`;
