@@ -23,7 +23,7 @@ const CORS = {
 
 // ─── Main handler ─────────────────────────────────────────────────────────────
 export async function handler(event) {
-  if (event.httpMethod === "OPTIONS") return { statusCode: 204, headers: CORS };
+  if (event.httpMethod === "OPTIONS") return { statusCode: 200, headers: { ...CORS, "Content-Length": "0" }, body: "" };
 
   const target = event.queryStringParameters?.target;
 
