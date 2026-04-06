@@ -799,8 +799,7 @@ function CalendarTab({ config, burnLogs, onSaveBurn, weekSessions, allSessions, 
                   style={{ background: bg, borderRadius: 8, padding: "5px 3px", minHeight: 44, border: isSelected ? "2px solid #1a1a1a" : isToday ? "2px solid #555" : "0.5px solid #d0d0ce", cursor: "pointer" }}>
                   <div style={{ fontSize: 12, fontWeight: isToday ? 700 : 400, textAlign: "center", color: bg === "#166534" ? "#fff" : "#1a1a1a" }}>{day}</div>
                   <div style={{ display: "flex", justifyContent: "center", gap: 2, marginTop: 3, flexWrap: "wrap" }}>
-                    {dots.map(function(dot) { return <div key={dot.key} style={{ width: 5, height: 5, borderRadius: "50%", background: dot.color }} />; })}
-                  </div>
+                  {dots.map(function(dot) { return <div key={dot.key} style={{ width: 6, height: 6, borderRadius: "50%", background: "#fff", border: "1.5px solid " + dot.color }} />; })}                  </div>
                 </div>
               );
             })}
