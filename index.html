@@ -806,7 +806,7 @@ function App() {
       if (Array.isArray(result) && result[0]) {
         setTodayLogs(function(prev) { return prev.map(function(e) { return e.id === tempId ? Object.assign({ cal: entry.cal }, result[0]) : e; }); });
       }
-      upsertDailySummary(td);
+      await upsertDailySummary(td);
       syncSheet("today_meals", td);
       syncSheet("daily_summary", td);
     } catch(e) {
