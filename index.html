@@ -50,13 +50,16 @@ async function syncSheet(tab, date) {
   }).catch(function() {});
 }
 
-async function estimateFood(text) {
+async function estimateFood(text, isEatOut, restaurantType) {
+  var context = isEatOut
+    ? "This is an EAT-OUT meal" + (restaurantType ? " at a " + restaurantType : "") + "."
+    : "This is a HOME-COOKED meal.";
   var res = await fetch(PROXY, {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       model: "claude-sonnet-4-20250514", max_tokens: 300, temperature: 0,
-      system: "You are a nutrition expert estimating calories and macros for a specific athlete: male, 31 years old, 83.5kg, moderately to highly active, currently in a mild cut phase. Your estimates must be accurate and consistent — the same description must always return the same values.\n\nEstimation rules:\n- For HOME meals: assume typical Italian home cooking portions. A pasta dish is 80–100g dry pasta. A protein main is 150–180g cooked. Use moderate fat (olive oil, butter in realistic quantities).\n- For EAT-OUT meals: assume restaurant portions, which are typically 20–30% larger and higher in fat than home-cooked equivalents. Italian sit-down restaurants tend to be generous with oil, butter, and cheese. Fast food and bars follow standard commercial portions.\n- Always reason about portion size before estimating: briefly identify the main components and their likely weights, then calculate.\n- If the description is ambiguous, assume the most common Italian interpretation.\n\nReply ONLY with raw JSON, no preamble, no markdown fences:\n{\"name\":\"<english name>\",\"cal\":<int>,\"protein\":<int>,\"carbs\":<int>,\"fat\":<int>,\"note\":\"<one sentence in user language explaining your portion assumption>\"}"
-      messages: [{ role: "user", content: text }]
+      system: "You are a nutrition expert estimating calories and macros for a specific athlete: male, 31, 83.5kg, highly active, mild cut phase. Estimates must be consistent.\n\nRules:\n- HOME meals: typical Italian home portions. Pasta 80-100g dry. Protein main 150-180g cooked. Moderate fat.\n- EAT-OUT meals: restaurant portions, 20-30% larger and higher in fat than home. Italian restaurants are generous with oil and cheese.\n- Reason about portion size before estimating.\n- If ambiguous, assume most common Italian interpretation.\n\nReply ONLY with raw JSON: {\"name\":\"<english name>\",\"cal\":<int>,\"protein\":<int>,\"carbs\":<int>,\"fat\":<int>,\"note\":\"<one sentence in user language explaining portion assumption>\"}",
+      messages: [{ role: "user", content: context + " " + text }]
     })
   });
   if (!res.ok) { var err = await res.json().catch(function() { return {}; }); throw new Error((err.error && err.error.message) || "HTTP " + res.status); }
