@@ -818,11 +818,10 @@ function App() {
     setTodayLogs(function(prev) { return prev.filter(function(e) { return e.id !== id; }); });
     try {
       await supabaseQuery({ action: "delete", table: "meals", filters: [{ column: "id", op: "eq", value: id }] });
-      var td = todayISO();
-      upsertDailySummary(td);
-      syncSheet("today_meals", td);
-      syncSheet("daily_summary", td);
-    } catch(e) { console.error("Delete meal error:", e); }
+     var td = todayISO();
+     await upsertDailySummary(td);
+     syncSheet("today_meals", td);
+     syncSheet("daily_summary", td);
   }
 
   async function upsertDailySummary(td) {
