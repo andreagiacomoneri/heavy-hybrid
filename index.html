@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<title>Heavy Hybrid</title>
+<title>Gym Fra</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
@@ -584,49 +584,178 @@ function NutritionTab({ config, todayLogs, onAddMeal, onDeleteMeal, isTrainingDa
 }
 
 // ── CALENDAR ──────────────────────────────────────────────────
-function DayDetail({ iso, burnLogs, onSaveBurn, weekSessions, correction }) {
-  var [burnInput, setBurnInput] = useState(burnLogs[iso] ? String(burnLogs[iso]) : ""); var [saved, setSaved] = useState(false);
+
+function dayCellBg(iso, burnLogs, dailySummaryLogs, correction) {
+  var burn = burnLogs[iso];
+  if (!burn) return "#e8e8e6"; // grey — no burn data
+  var summary = dailySummaryLogs[iso];
+  if (!summary) return "#e8e8e6";
+  var corrected = Math.round(burn * correction);
+  var balance = (summary.calories || 0) - corrected;
+  if (balance <= -300) return "#166534"; // dark green
+  if (balance <= 0)    return "#bbf7d0"; // light green
+  if (balance <= 300)  return "#fde68a"; // amber
+  return "#fca5a5";                       // red
+}
+
+function DayDetail({ iso, burnLogs, onSaveBurn, weekSessions, activities, dailySummaryLogs, correction, config }) {
+  var existing = burnLogs[iso] ? String(burnLogs[iso]) : "";
+  var [burnInput, setBurnInput] = useState(existing);
+  var [saved, setSaved] = useState(false);
+  useEffect(function() { setBurnInput(burnLogs[iso] ? String(burnLogs[iso]) : ""); }, [iso]);
   var burn = burnLogs[iso]; var correctedBurn = burn ? Math.round(burn * correction) : null;
   var session = weekSessions.find(function(s) { return s.date === iso; });
+  var activity = activities.find(function(a) { return a.date === iso; });
+  var summary = dailySummaryLogs[iso];
   function saveBurn() { var v = parseFloat(burnInput); if (!v || isNaN(v)) return; onSaveBurn(iso, v); setSaved(true); setTimeout(function() { setSaved(false); }, 2000); }
   var label = new Date(iso + "T12:00:00").toLocaleDateString("en", { weekday: "long", month: "long", day: "numeric" });
+  var calGoal = session ? config.nutrition.caloriesTraining : config.nutrition.caloriesRest;
   return (
     <div style={{ marginTop: 14, background: "#fff", border: "0.5px solid #ddd", borderRadius: 12, overflow: "hidden" }}>
-      <div style={{ background: "#1a1a1a", color: "#fff", padding: "10px 14px", fontSize: 13, fontWeight: 500, display: "flex", justifyContent: "space-between", alignItems: "center" }}><span>{label}</span><span style={{ fontSize: 11, color: "#aaa" }}>{session ? "Training day" : "Rest day"}</span></div>
+      <div style={{ background: "#1a1a1a", color: "#fff", padding: "10px 14px", fontSize: 13, fontWeight: 500, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span>{label}</span>
+        <span style={{ fontSize: 11, color: "#aaa" }}>{session ? "Training day" : "Rest day"}</span>
+      </div>
       <div style={{ padding: 14 }}>
-        {session && <div style={{ background: "#f5f5f3", borderRadius: 8, padding: "10px 12px", marginBottom: 14 }}><div style={{ fontSize: 12, fontWeight: 500, marginBottom: 6 }}>{session.title}</div><div style={{ display: "flex", gap: 10 }}>{[["difficulty", (session.difficulty_kg || "-") + " kg"], ["completion", (session.completion_pct || "-") + "%"]].map(function(item) { return <div key={item[0]} style={{ flex: 1, textAlign: "center" }}><div style={{ fontSize: 16, fontWeight: 500 }}>{item[1]}</div><div style={{ fontSize: 10, color: "#aaa" }}>{item[0]}</div></div>; })}</div></div>}
-        <div><div style={{ fontSize: 11, color: "#999", fontWeight: 500, marginBottom: 6 }}>CALORIES BURNED (PIXEL WATCH — RAW)</div><div style={{ display: "flex", gap: 8, alignItems: "center" }}><input type="number" inputMode="numeric" value={burnInput} onChange={function(e) { setBurnInput(e.target.value); setSaved(false); }} placeholder="e.g. 2680" style={{ flex: 1, padding: "10px 12px", border: "0.5px solid #ccc", borderRadius: 8, fontSize: 15, fontWeight: 500 }} /><button onClick={saveBurn} style={{ padding: "10px 18px", background: "#1a1a1a", color: "#fff", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: "pointer" }}>{saved ? "Saved" : "Save"}</button></div>{correctedBurn && <div style={{ marginTop: 10, fontSize: 12, color: "#888" }}>Corrected: <strong>{correctedBurn} kcal</strong> (×{correction})</div>}</div>
+        {session && (
+          <div style={{ background: "#f5f5f3", borderRadius: 8, padding: "10px 12px", marginBottom: 14 }}>
+            <div style={{ fontSize: 12, fontWeight: 500, marginBottom: 6 }}>{session.title}</div>
+            <div style={{ display: "flex", gap: 10 }}>
+              {[["difficulty", (session.difficulty_kg || "-") + " kg"], ["completion", (session.completion_pct || "-") + "%"], ["duration", (session.actual_duration || "-") + " min"]].map(function(item) {
+                return <div key={item[0]} style={{ flex: 1, textAlign: "center" }}><div style={{ fontSize: 15, fontWeight: 500 }}>{item[1]}</div><div style={{ fontSize: 10, color: "#aaa" }}>{item[0]}</div></div>;
+              })}
+            </div>
+          </div>
+        )}
+        {activity && (
+          <div style={{ background: "#f5f5f3", borderRadius: 8, padding: "10px 12px", marginBottom: 14 }}>
+            <div style={{ fontSize: 12, fontWeight: 500, marginBottom: 6 }}>{activity.type}</div>
+            <div style={{ display: "flex", gap: 10 }}>
+              {[["duration", (activity.duration || "-") + " min"], ["burned", (activity.calories_burned || "-") + " kcal"], ["peak HR", (activity.peak_hr || "-") + " bpm"]].map(function(item) {
+                return <div key={item[0]} style={{ flex: 1, textAlign: "center" }}><div style={{ fontSize: 15, fontWeight: 500 }}>{item[1]}</div><div style={{ fontSize: 10, color: "#aaa" }}>{item[0]}</div></div>;
+              })}
+            </div>
+            {activity.notes && <div style={{ fontSize: 11, color: "#888", marginTop: 6, fontStyle: "italic" }}>{activity.notes}</div>}
+          </div>
+        )}
+        {summary && (
+          <div style={{ marginBottom: 14 }}>
+            <MacroBar label="Calories" value={summary.calories || 0} goal={calGoal} color="#a5f3fc" />
+            <MacroBar label="Protein"  value={summary.protein  || 0} goal={config.nutrition.protein} color="#86efac" />
+            <MacroBar label="Carbs"    value={summary.carbs    || 0} goal={session ? config.nutrition.carbsTraining : config.nutrition.carbsRest} color="#fde68a" />
+            <MacroBar label="Fat"      value={summary.fat      || 0} goal={session ? config.nutrition.fatTraining  : config.nutrition.fatRest}  color="#fca5a5" />
+          </div>
+        )}
+        <div>
+          <div style={{ fontSize: 11, color: "#999", fontWeight: 500, marginBottom: 6 }}>CALORIES BURNED (PIXEL WATCH — RAW)</div>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <input type="number" inputMode="numeric" value={burnInput} onChange={function(e) { setBurnInput(e.target.value); setSaved(false); }} placeholder="e.g. 2680" style={{ flex: 1, padding: "10px 12px", border: "0.5px solid #ccc", borderRadius: 8, fontSize: 15, fontWeight: 500 }} />
+            <button onClick={saveBurn} style={{ padding: "10px 18px", background: "#1a1a1a", color: "#fff", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: "pointer" }}>{saved ? "Saved" : "Save"}</button>
+          </div>
+          {correctedBurn && <div style={{ marginTop: 10, fontSize: 12, color: "#888" }}>Corrected: <strong>{correctedBurn} kcal</strong> (×{correction})</div>}
+        </div>
       </div>
     </div>
   );
 }
 
-function WeekDetail({ weekKey, omronData, onSaveOmron }) {
-  var [weight, setWeight] = useState(omronData ? String(omronData.bodyweight) : ""); var [bf, setBf] = useState(omronData ? String(omronData.body_fat) : ""); var [saved, setSaved] = useState(false);
+function WeekDetail({ weekKey, omronData, prevOmronData, weeklyRow, onSaveOmron }) {
+  var [weight, setWeight] = useState(omronData ? String(omronData.bodyweight) : "");
+  var [bf, setBf] = useState(omronData ? String(omronData.body_fat) : "");
+  var [saved, setSaved] = useState(false);
   var leanMass = weight && bf ? Math.round(parseFloat(weight) * (1 - parseFloat(bf) / 100) * 10) / 10 : null;
-  var fatMass = weight && bf ? Math.round(parseFloat(weight) * (parseFloat(bf) / 100) * 10) / 10 : null;
+  var fatMass  = weight && bf ? Math.round(parseFloat(weight) * (parseFloat(bf) / 100) * 10) / 10 : null;
   function save() { var w = parseFloat(weight), b = parseFloat(bf); if (!w || !b || isNaN(w) || isNaN(b)) return; onSaveOmron(weekKey, w, b); setSaved(true); setTimeout(function() { setSaved(false); }, 2000); }
+  function delta(curr, prev, unit, invert) {
+    if (!curr || !prev) return null;
+    var d = Math.round((curr - prev) * 10) / 10;
+    var positive = invert ? d < 0 : d > 0;
+    var color = d === 0 ? "#888" : positive ? "#dc2626" : "#166534";
+    return <span style={{ fontSize: 11, color: color, marginLeft: 4 }}>{d > 0 ? "+" : ""}{d}{unit}</span>;
+  }
+  var w = parseFloat(weight), b = parseFloat(bf);
+  var prevW = prevOmronData ? prevOmronData.bodyweight : null;
+  var prevB = prevOmronData ? prevOmronData.body_fat   : null;
+  var wr = weeklyRow || {};
+  var totalMeals = wr.total_meals || 0;
+  var eatOutPct  = totalMeals > 0 ? Math.round((wr.eat_out_meals / totalMeals) * 100) : null;
   return (
     <div style={{ background: "#fff", border: "0.5px solid #ddd", borderTop: "none", borderRadius: "0 0 10px 10px", padding: 14, marginBottom: 8 }}>
+      {wr.week_key && (
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 11, color: "#999", fontWeight: 500, marginBottom: 10 }}>WEEK RECAP</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+            {[
+              ["Sessions", wr.sessions || 0],
+              ["Total volume", (wr.total_difficulty || 0) + " kg"],
+              ["Avg energy balance", wr.avg_energy_balance !== null && wr.avg_energy_balance !== undefined ? wr.avg_energy_balance + " kcal" : "-"],
+              ["Eat-out", eatOutPct !== null ? eatOutPct + "%" : "-"]
+            ].map(function(item) {
+              return <div key={item[0]} style={{ background: "#f5f5f3", borderRadius: 8, padding: "8px 10px", textAlign: "center" }}>
+                <div style={{ fontSize: 15, fontWeight: 500 }}>{item[1]}</div>
+                <div style={{ fontSize: 10, color: "#aaa" }}>{item[0]}</div>
+              </div>;
+            })}
+          </div>
+        </div>
+      )}
       <div style={{ fontSize: 11, color: "#999", fontWeight: 500, marginBottom: 12 }}>OMRON WEEKLY READING</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 14 }}>
-        <div><div style={{ fontSize: 11, color: "#999", fontWeight: 500, marginBottom: 4 }}>BODYWEIGHT (KG)</div><Stepper value={weight} onChange={function(v) { setWeight(v); setSaved(false); }} step={0.1} placeholder="kg" /></div>
-        <div><div style={{ fontSize: 11, color: "#999", fontWeight: 500, marginBottom: 4 }}>BODY FAT (%)</div><Stepper value={bf} onChange={function(v) { setBf(v); setSaved(false); }} step={0.1} placeholder="%" /></div>
+        <div>
+          <div style={{ fontSize: 11, color: "#999", fontWeight: 500, marginBottom: 4 }}>
+            BODYWEIGHT (KG){w && prevW ? delta(w, prevW, "kg", true) : null}
+          </div>
+          <Stepper value={weight} onChange={function(v) { setWeight(v); setSaved(false); }} step={0.1} placeholder="kg" />
+        </div>
+        <div>
+          <div style={{ fontSize: 11, color: "#999", fontWeight: 500, marginBottom: 4 }}>
+            BODY FAT (%){b && prevB ? delta(b, prevB, "%", true) : null}
+          </div>
+          <Stepper value={bf} onChange={function(v) { setBf(v); setSaved(false); }} step={0.1} placeholder="%" />
+        </div>
       </div>
-      {leanMass && fatMass && <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>{[["Lean mass", leanMass + " kg"], ["Fat mass", fatMass + " kg"]].map(function(item) { return <div key={item[0]} style={{ flex: 1, background: "#f5f5f3", borderRadius: 8, padding: "8px 10px", textAlign: "center" }}><div style={{ fontSize: 16, fontWeight: 500 }}>{item[1]}</div><div style={{ fontSize: 10, color: "#aaa" }}>{item[0]}</div></div>; })}</div>}
+      {leanMass && fatMass && (
+        <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
+          {[["Lean mass", leanMass + " kg"], ["Fat mass", fatMass + " kg"]].map(function(item) {
+            return <div key={item[0]} style={{ flex: 1, background: "#f5f5f3", borderRadius: 8, padding: "8px 10px", textAlign: "center" }}>
+              <div style={{ fontSize: 16, fontWeight: 500 }}>{item[1]}</div>
+              <div style={{ fontSize: 10, color: "#aaa" }}>{item[0]}</div>
+            </div>;
+          })}
+        </div>
+      )}
       <button onClick={save} style={{ width: "100%", padding: 13, background: saved ? "#2d7a4f" : "#1a1a1a", color: "#fff", border: "none", borderRadius: 10, fontSize: 14, fontWeight: 500, cursor: "pointer" }}>{saved ? "Saved" : "Save Omron reading"}</button>
     </div>
   );
 }
 
-function CalendarTab({ config, burnLogs, onSaveBurn, weekSessions, omronLogs, onSaveOmron }) {
+function CalendarTab({ config, burnLogs, onSaveBurn, weekSessions, allSessions, activities, omronLogs, onSaveOmron, dailySummaryLogs, weeklySummaryLogs }) {
   var [viewDate, setViewDate] = useState(new Date()); var [calView, setCalView] = useState("daily");
   var [selectedISO, setSelectedISO] = useState(null); var [selectedWeek, setSelectedWeek] = useState(null);
   var year = viewDate.getFullYear(), month = viewDate.getMonth();
   var daysInMonth = new Date(year, month + 1, 0).getDate();
   var firstDay = (new Date(year, month, 1).getDay() + 6) % 7;
   var correction = config.training.pixelWatchCorrection; var today = todayISO();
-  function getWeeksInMonth() { var weeks = []; for (var d = 1; d <= daysInMonth; d++) { var iso = year + "-" + String(month + 1).padStart(2, "0") + "-" + String(d).padStart(2, "0"); var wk = getWeekKey(iso); if (!weeks.find(function(w) { return w.key === wk; })) { var start = new Date(iso + "T12:00:00"); var end = new Date(start); end.setDate(start.getDate() + 6); weeks.push({ key: wk, label: start.toLocaleDateString("en", { month: "short", day: "numeric" }) + " – " + end.toLocaleDateString("en", { month: "short", day: "numeric" }) }); } } return weeks; }
+
+  function getWeeksInMonth() {
+    var weeks = [];
+    for (var d = 1; d <= daysInMonth; d++) {
+      var iso = year + "-" + String(month + 1).padStart(2, "0") + "-" + String(d).padStart(2, "0");
+      var wk = getWeekKey(iso);
+      if (!weeks.find(function(w) { return w.key === wk; })) {
+        var start = new Date(iso + "T12:00:00"); var end = new Date(start); end.setDate(start.getDate() + 6);
+        weeks.push({ key: wk, label: start.toLocaleDateString("en", { month: "short", day: "numeric" }) + " – " + end.toLocaleDateString("en", { month: "short", day: "numeric" }) });
+      }
+    }
+    return weeks;
+  }
+
+  function getPrevWeekKey(wk) {
+    var parts = wk.split("_W"); var yr = parseInt(parts[0]); var wn = parseInt(parts[1]);
+    if (wn === 1) return (yr - 1) + "_W52";
+    return yr + "_W" + String(wn - 1).padStart(2, "0");
+  }
+
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
@@ -635,33 +764,87 @@ function CalendarTab({ config, burnLogs, onSaveBurn, weekSessions, omronLogs, on
         <button onClick={function() { setViewDate(new Date(year, month + 1, 1)); setSelectedISO(null); setSelectedWeek(null); }} style={{ background: "none", border: "0.5px solid #ddd", borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontSize: 14 }}>{">"}</button>
       </div>
       <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
-        {[["daily","Daily"],["weekly","Weekly"]].map(function(item) { return <button key={item[0]} onClick={function() { setCalView(item[0]); setSelectedISO(null); setSelectedWeek(null); }} style={{ flex: 1, padding: "8px 0", borderRadius: 10, border: "0.5px solid #ccc", cursor: "pointer", fontWeight: 500, fontSize: 13, background: calView === item[0] ? "#1a1a1a" : "#fff", color: calView === item[0] ? "#fff" : "#666" }}>{item[1]}</button>; })}
+        {[["daily","Daily"],["weekly","Weekly"]].map(function(item) {
+          return <button key={item[0]} onClick={function() { setCalView(item[0]); setSelectedISO(null); setSelectedWeek(null); }} style={{ flex: 1, padding: "8px 0", borderRadius: 10, border: "0.5px solid #ccc", cursor: "pointer", fontWeight: 500, fontSize: 13, background: calView === item[0] ? "#1a1a1a" : "#fff", color: calView === item[0] ? "#fff" : "#666" }}>{item[1]}</button>;
+        })}
       </div>
+
       {calView === "daily" && (
         <div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4, marginBottom: 8 }}>{["M","T","W","T","F","S","S"].map(function(d, i) { return <div key={i} style={{ textAlign: "center", fontSize: 11, color: "#aaa", fontWeight: 500 }}>{d}</div>; })}</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4, marginBottom: 8 }}>
+            {["M","T","W","T","F","S","S"].map(function(d, i) { return <div key={i} style={{ textAlign: "center", fontSize: 11, color: "#aaa", fontWeight: 500 }}>{d}</div>; })}
+          </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4 }}>
             {Array.from({ length: firstDay }, function(_, i) { return <div key={"b" + i} />; })}
             {Array.from({ length: daysInMonth }, function(_, i) {
-              var day = i + 1; var iso = year + "-" + String(month + 1).padStart(2, "0") + "-" + String(day).padStart(2, "0");
+              var day = i + 1;
+              var iso = year + "-" + String(month + 1).padStart(2, "0") + "-" + String(day).padStart(2, "0");
               var isToday = iso === today, isSelected = iso === selectedISO;
-              var hasSession = weekSessions.some(function(s) { return s.date === iso; });
-              var hasBurn = !!burnLogs[iso];
-              return <div key={day} onClick={function() { setSelectedISO(isSelected ? null : iso); }} style={{ background: hasBurn ? "#dbeafe" : "#f9f9f7", borderRadius: 8, padding: "5px 3px", minHeight: 44, border: isSelected ? "2px solid #1a1a1a" : isToday ? "2px solid #888" : "0.5px solid #e0e0e0", cursor: "pointer" }}><div style={{ fontSize: 12, fontWeight: isToday ? 700 : 400, textAlign: "center" }}>{day}</div>{hasSession && <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#2d7a4f", margin: "2px auto 0" }} />}</div>;
+              var hasSession  = allSessions.some(function(s) { return s.date === iso; });
+              var hasActivity = activities.some(function(a) { return a.date === iso; });
+              var summary = dailySummaryLogs[iso];
+              var bg = dayCellBg(iso, burnLogs, dailySummaryLogs, correction);
+
+              // Dots
+              var dots = [];
+              if (hasSession || hasActivity) dots.push({ color: "#2d7a4f", key: "g" });
+              if (summary) {
+                if ((summary.protein || 0) < (config.nutrition.protein - 20))                    dots.push({ color: "#3b82f6", key: "b" });
+                if ((summary.fat    || 0) > (config.nutrition.fatTraining + 15))                  dots.push({ color: "#f97316", key: "o" });
+                if ((summary.carbs  || 0) > ((hasSession ? config.nutrition.carbsTraining : config.nutrition.carbsRest) + 30)) dots.push({ color: "#a855f7", key: "p" });
+              }
+
+              return (
+                <div key={day} onClick={function() { setSelectedISO(isSelected ? null : iso); }}
+                  style={{ background: bg, borderRadius: 8, padding: "5px 3px", minHeight: 44, border: isSelected ? "2px solid #1a1a1a" : isToday ? "2px solid #555" : "0.5px solid #d0d0ce", cursor: "pointer" }}>
+                  <div style={{ fontSize: 12, fontWeight: isToday ? 700 : 400, textAlign: "center", color: bg === "#166534" ? "#fff" : "#1a1a1a" }}>{day}</div>
+                  <div style={{ display: "flex", justifyContent: "center", gap: 2, marginTop: 3, flexWrap: "wrap" }}>
+                    {dots.map(function(dot) { return <div key={dot.key} style={{ width: 5, height: 5, borderRadius: "50%", background: dot.color }} />; })}
+                  </div>
+                </div>
+              );
             })}
           </div>
-          {selectedISO && <DayDetail iso={selectedISO} burnLogs={burnLogs} onSaveBurn={onSaveBurn} weekSessions={weekSessions} correction={correction} />}
+
+          {selectedISO && <DayDetail iso={selectedISO} burnLogs={burnLogs} onSaveBurn={onSaveBurn} weekSessions={allSessions} activities={activities} dailySummaryLogs={dailySummaryLogs} correction={correction} config={config} />}
+
           <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {[["#dbeafe","Burn logged"],["#f9f9f7","No data"]].map(function(item) { return <div key={item[1]} style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 10, color: "#666" }}><div style={{ width: 10, height: 10, borderRadius: 2, background: item[0], border: "0.5px solid #ddd" }} />{item[1]}</div>; })}
-            <div style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 10, color: "#666" }}><div style={{ width: 5, height: 5, borderRadius: "50%", background: "#2d7a4f" }} />Session</div>
+            {[["#166534","Deficit 300+"],["#bbf7d0","Deficit/neutral"],["#fde68a","Surplus <300"],["#fca5a5","Surplus 300+"],["#e8e8e6","No data"]].map(function(item) {
+              return <div key={item[1]} style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 10, color: "#666" }}>
+                <div style={{ width: 10, height: 10, borderRadius: 2, background: item[0], border: "0.5px solid #ddd" }} />{item[1]}
+              </div>;
+            })}
+          </div>
+          <div style={{ marginTop: 6, display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {[["#2d7a4f","Session/activity"],["#3b82f6","Low protein"],["#f97316","High fat"],["#a855f7","High carbs"]].map(function(item) {
+              return <div key={item[1]} style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 10, color: "#666" }}>
+                <div style={{ width: 6, height: 6, borderRadius: "50%", background: item[0] }} />{item[1]}
+              </div>;
+            })}
           </div>
         </div>
       )}
+
       {calView === "weekly" && (
         <div>
           {getWeeksInMonth().map(function(w) {
             var omronData = omronLogs[w.key] || null;
-            return <div key={w.key}><div onClick={function() { setSelectedWeek(selectedWeek === w.key ? null : w.key); }} style={{ background: "#fff", border: "0.5px solid #ddd", borderRadius: selectedWeek === w.key ? "10px 10px 0 0" : 10, padding: "12px 14px", marginBottom: selectedWeek === w.key ? 0 : 8, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}><span style={{ fontSize: 13, fontWeight: 500 }}>{w.label}</span><div style={{ display: "flex", alignItems: "center", gap: 8 }}>{omronData && <span style={{ fontSize: 11, color: "#2d7a4f", fontWeight: 500 }}>{omronData.bodyweight} kg · {omronData.body_fat}% BF</span>}<span style={{ fontSize: 14, color: "#aaa" }}>{selectedWeek === w.key ? "^" : "v"}</span></div></div>{selectedWeek === w.key && <WeekDetail weekKey={w.key} omronData={omronData} onSaveOmron={onSaveOmron} />}</div>;
+            var prevKey   = getPrevWeekKey(w.key);
+            var prevOmron = omronLogs[prevKey] || null;
+            var weeklyRow = weeklySummaryLogs[w.key] || null;
+            return (
+              <div key={w.key}>
+                <div onClick={function() { setSelectedWeek(selectedWeek === w.key ? null : w.key); }}
+                  style={{ background: "#fff", border: "0.5px solid #ddd", borderRadius: selectedWeek === w.key ? "10px 10px 0 0" : 10, padding: "12px 14px", marginBottom: selectedWeek === w.key ? 0 : 8, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontSize: 13, fontWeight: 500 }}>{w.label}</span>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    {omronData && <span style={{ fontSize: 11, color: "#2d7a4f", fontWeight: 500 }}>{omronData.bodyweight} kg · {omronData.body_fat}% BF</span>}
+                    <span style={{ fontSize: 14, color: "#aaa" }}>{selectedWeek === w.key ? "^" : "v"}</span>
+                  </div>
+                </div>
+                {selectedWeek === w.key && <WeekDetail weekKey={w.key} omronData={omronData} prevOmronData={prevOmron} weeklyRow={weeklyRow} onSaveOmron={onSaveOmron} />}
+              </div>
+            );
           })}
         </div>
       )}
@@ -697,6 +880,10 @@ function App() {
   var [weekSessions, setWeekSessions] = useState([]);
   var [weeklyRow, setWeeklyRow] = useState(null);
   var [lastSessionSets, setLastSessionSets] = useState([]);
+  var [allSessions, setAllSessions] = useState([]);
+  var [activities, setActivities] = useState([]);
+  var [dailySummaryLogs, setDailySummaryLogs] = useState({});
+  var [weeklySummaryLogs, setWeeklySummaryLogs] = useState({});
   var [showSettings, setShowSettings] = useState(false);
   var [loading, setLoading] = useState(true);
 
@@ -750,24 +937,58 @@ function App() {
         });
         if (Array.isArray(weekly) && weekly.length) setWeeklyRow(weekly[0]);
 
-        // Burn logs — calories_burned from daily_summary (all non-null)
-        var dailyRows = await supabaseQuery({
-          action: "select", table: "daily_summary",
-          filters: [{ column: "calories_burned", op: "gt", value: 0 }]
+        // All sessions (for calendar dot + day detail)
+        var allSessionsData = await supabaseQuery({
+          action: "select", table: "training_sessions",
+          order: "date.asc"
         });
-        if (Array.isArray(dailyRows)) {
+        if (Array.isArray(allSessionsData)) setAllSessions(allSessionsData);
+
+        // All activities
+        var activitiesData = await supabaseQuery({
+          action: "select", table: "activities",
+          order: "date.asc"
+        });
+        if (Array.isArray(activitiesData)) setActivities(activitiesData);
+
+        // All daily summaries (for calendar colors + day detail)
+        var dailyData = await supabaseQuery({
+          action: "select", table: "daily_summary",
+          order: "date.asc"
+        });
+        if (Array.isArray(dailyData)) {
+          var dailyMap = {};
+          dailyData.forEach(function(r) { dailyMap[r.date] = r; });
+          setDailySummaryLogs(dailyMap);
           var burns = {};
-          dailyRows.forEach(function(r) { if (r.calories_burned) burns[r.date] = r.calories_burned; });
+          dailyData.forEach(function(r) { if (r.calories_burned) burns[r.date] = r.calories_burned; });
           setBurnLogs(burns);
         }
 
-        // Omron logs for current week
-        var omron = await supabaseQuery({
-          action: "select", table: "body_composition",
-          filters: [{ column: "entry_date", op: "gte", value: wkStart }, { column: "entry_date", op: "lte", value: wkEnd }]
+        // All weekly summaries (for weekly recap)
+        var weeklyData = await supabaseQuery({
+          action: "select", table: "weekly_summary",
+          order: "week_start.asc"
         });
-        if (Array.isArray(omron) && omron.length) {
-          setOmronLogs(function(prev) { var n = Object.assign({}, prev); n[wkKey] = omron[0]; return n; });
+        if (Array.isArray(weeklyData)) {
+          var weeklyMap = {};
+          weeklyData.forEach(function(r) { weeklyMap[r.week_key] = r; });
+          setWeeklySummaryLogs(weeklyMap);
+          if (weeklyMap[wkKey]) setWeeklyRow(weeklyMap[wkKey]);
+        }
+
+        // All Omron readings (for weekly view deltas)
+        var allOmron = await supabaseQuery({
+          action: "select", table: "body_composition",
+          order: "entry_date.asc"
+        });
+        if (Array.isArray(allOmron)) {
+          var omronMap = {};
+          allOmron.forEach(function(r) {
+            var wk = getWeekKey(r.entry_date);
+            omronMap[wk] = r;
+          });
+          setOmronLogs(omronMap);
         }
 
       } catch(e) { console.error("Load error:", e); }
@@ -806,7 +1027,7 @@ function App() {
       if (Array.isArray(result) && result[0]) {
         setTodayLogs(function(prev) { return prev.map(function(e) { return e.id === tempId ? Object.assign({ cal: entry.cal }, result[0]) : e; }); });
       }
-      await upsertDailySummary(td);
+      upsertDailySummary(td);
       syncSheet("today_meals", td);
       syncSheet("daily_summary", td);
     } catch(e) {
@@ -818,12 +1039,11 @@ function App() {
     setTodayLogs(function(prev) { return prev.filter(function(e) { return e.id !== id; }); });
     try {
       await supabaseQuery({ action: "delete", table: "meals", filters: [{ column: "id", op: "eq", value: id }] });
-     var td = todayISO();
-     await upsertDailySummary(td);
-     syncSheet("today_meals", td);
-     syncSheet("daily_summary", td);
+      var td = todayISO();
+      upsertDailySummary(td);
+      syncSheet("today_meals", td);
+      syncSheet("daily_summary", td);
     } catch(e) { console.error("Delete meal error:", e); }
-
   }
 
   async function upsertDailySummary(td) {
@@ -931,7 +1151,7 @@ function App() {
       {tab === "dashboard" && <Dashboard config={config} todayLogs={todayLogs} calGoal={calGoal} carbGoal={carbGoal} fatGoal={fatGoal} isTrainingDay={isTrainingDay} weekSessions={weekSessions} weeklyRow={weeklyRow} onTabChange={setTab} />}
       {tab === "nutrition" && <NutritionTab config={config} todayLogs={todayLogs} onAddMeal={handleAddMeal} onDeleteMeal={handleDeleteMeal} isTrainingDay={isTrainingDay} calOverride={calOverrideToday} />}
       {tab === "training" && <TrainingTab config={config} onSessionSaved={handleSessionSaved} lastSessionSets={lastSessionSets} />}
-      {tab === "calendar" && <CalendarTab config={config} burnLogs={burnLogs} onSaveBurn={handleSaveBurn} weekSessions={weekSessions} omronLogs={omronLogs} onSaveOmron={handleSaveOmron} />}
+      {tab === "calendar" && <CalendarTab config={config} burnLogs={burnLogs} onSaveBurn={handleSaveBurn} weekSessions={weekSessions} allSessions={allSessions} activities={activities} omronLogs={omronLogs} onSaveOmron={handleSaveOmron} dailySummaryLogs={dailySummaryLogs} weeklySummaryLogs={weeklySummaryLogs} />}
       {showSettings && <SettingsPanel config={config} onSave={handleConfigSave} onClose={function() { setShowSettings(false); }} onPatch={handlePatch} />}
     </div>
   );
