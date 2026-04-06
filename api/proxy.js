@@ -122,7 +122,6 @@ async function handleSupabase(req, res) {
 // Body shape: { tab, date? }
 
 async function handleSyncSheet(req, res) {
-  console.log("sync-sheet called:", req.body.tab, req.body.date);
   const { tab, date } = req.body;
   const today = date || new Date().toISOString().split("T")[0];
 
@@ -133,7 +132,6 @@ async function handleSyncSheet(req, res) {
       const row   = await supabaseSelect("daily_summary", [{ column: "date", op: "eq", value: today }]);
       const meals = await supabaseSelect("meals", [{ column: "date", op: "eq", value: today }]);
       await recalcWeeklySummary(today);
-      console.log("recalc done for:", today);
       sheetData = { tab, row: row[0], meals };
       break;
     }
