@@ -1116,7 +1116,7 @@ function App() {
       if (!patch.date || patch.date === todayISO()) {
         handleAddMeal(entry);
       } else {
-        var row = { date: patch.date, meal_type: entry.meal_type, food: entry.food, description: entry.description, calories: entry.cal, protein: entry.protein, carbs: entry.carbs, fat: entry.fat, is_eat_out: entry.is_eat_out, restaurant_type: entry.restaurant_type };
+        var row = { date: patch.date, meal_type: entry.meal_type, food: entry.food, description: entry.description, calories: calories: entry.calories, protein: entry.protein, carbs: entry.carbs, fat: entry.fat, is_eat_out: entry.is_eat_out, restaurant_type: entry.restaurant_type };
         supabaseQuery({ action: "insert", table: "meals", data: row }).catch(function() {});
       }
  } else if (patch.type === "calorie_override") {
