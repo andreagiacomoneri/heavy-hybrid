@@ -133,6 +133,7 @@ async function handleSyncSheet(req, res) {
       const row   = await supabaseSelect("daily_summary", [{ column: "date", op: "eq", value: today }]);
       const meals = await supabaseSelect("meals", [{ column: "date", op: "eq", value: today }]);
       await recalcWeeklySummary(today);
+      console.log("recalc done for:", today);
       sheetData = { tab, row: row[0], meals };
       break;
     }
