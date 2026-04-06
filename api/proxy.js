@@ -227,6 +227,14 @@ async function recalcWeeklySummary(date) {
 
   const avg = (arr, key) => arr.reduce((s, r) => s + (r[key] || 0), 0) / arr.length;
   const sum = (arr, key) => arr.reduce((s, r) => s + (r[key] || 0), 0);
+  const allMeals = await supabaseSelect("meals", [
+    { column: "date", op: "gte", value: weekStart },
+    { column: "date", op: "lte", value: weekEnd },
+  ]);
+  const homeMeals  = allMeals.filter(m => !m.is_eat_out).length;
+  const eatOutMeals = allMeals.filter(m => m.is_eat_out).length;
+  const totalMeals = allMeals.length;
+
   const proteinHits = days.filter(d => d.protein >= d.protein_goal).length;
 
   const weekly = {
@@ -237,7 +245,9 @@ async function recalcWeeklySummary(date) {
     avg_protein:        Math.round(avg(days, "protein")),
     protein_compliance: Math.round((proteinHits / days.length) * 100),
     calorie_compliance: Math.round(days.filter(d => Math.abs(d.calorie_delta) <= 100).length / days.length * 100),
-    eat_out_meals:      sum(days, "eat_out_meals"),
+    eat_out_meals:      eatOutMeals,
+    home_meals:         homeMeals,
+    total_meals:        totalMeals,
     sessions:           sessions.length,
     total_difficulty:   sum(sessions, "difficulty_kg"),
     avg_energy_balance: Math.round(avg(days, "energy_balance")),
