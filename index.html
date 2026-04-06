@@ -822,6 +822,8 @@ function App() {
      await upsertDailySummary(td);
      syncSheet("today_meals", td);
      syncSheet("daily_summary", td);
+    } catch(e) { console.error("Delete meal error:", e); }
+
   }
 
   async function upsertDailySummary(td) {
