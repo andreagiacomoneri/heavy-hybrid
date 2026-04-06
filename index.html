@@ -1119,9 +1119,27 @@ function App() {
         var row = { date: patch.date, meal_type: entry.meal_type, food: entry.food, description: entry.description, calories: entry.cal, protein: entry.protein, carbs: entry.carbs, fat: entry.fat, is_eat_out: entry.is_eat_out, restaurant_type: entry.restaurant_type };
         supabaseQuery({ action: "insert", table: "meals", data: row }).catch(function() {});
       }
-    } else if (patch.type === "calorie_override") {
+ } else if (patch.type === "calorie_override") {
       var updated = Object.assign({}, calOverrides); updated[patch.date] = patch.caloriesOverride;
       setCalOverrides(updated); localStorage.setItem("hh_cal_overrides", JSON.stringify(updated));
+    } else if (patch.type === "activity") {
+      var row = {
+        date: patch.date,
+        type: patch.activity_type || "",
+        duration: patch.duration || null,
+        calories_burned: patch.calories_burned || null,
+        avg_hr: patch.avg_hr || null,
+        peak_hr: patch.peak_hr || null,
+        zone_minutes: patch.zone_minutes || null,
+        elevation_gain: patch.elevation_gain || null,
+        notes: patch.notes || ""
+      };
+      supabaseQuery({ action: "insert", table: "activities", data: row })
+        .then(function() {
+          setActivities(function(prev) { return prev.concat([row]); });
+          syncSheet("activities", patch.date);
+        })
+        .catch(function(e) { console.error("Activity patch error:", e); });
     }
   }
 
