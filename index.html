@@ -1112,7 +1112,7 @@ function App() {
 
   function handlePatch(patch) {
     if (patch.type === "nutrition_entry") {
-      var entry = { meal_type: patch.meal_type || "Dinner", food: patch.food, cal: patch.cal, calories: patch.cal, protein: patch.protein, carbs: patch.carbs, fat: patch.fat, is_eat_out: patch.is_eat_out || false, restaurant_type: patch.restaurant_type || "", description: patch.description || "" };
+      var entry = { meal_type: patch.meal_type || "Dinner", food: patch.food, cal: patch.calories || patch.cal, calories: patch.calories || patch.cal, protein: patch.protein, carbs: patch.carbs, fat: patch.fat, is_eat_out: patch.is_eat_out || false, restaurant_type: patch.restaurant_type || "", description: patch.description || "" };
       if (!patch.date || patch.date === todayISO()) {
         handleAddMeal(entry);
       } else {
