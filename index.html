@@ -189,7 +189,7 @@ function calcWeeklySummary(weekSessions, weeklyRow) {
 
 // ── DASHBOARD ─────────────────────────────────────────────────
 function Dashboard({ config, todayLogs, calGoal, carbGoal, fatGoal, isTrainingDay, weekSessions, weeklyRow, onTabChange }) {
-  var totals = todayLogs.reduce(function(a, e) { return { cal: a.cal + (e.cal||0), protein: a.protein + (e.protein||0), carbs: a.carbs + (e.carbs||0), fat: a.fat + (e.fat||0) }; }, { cal: 0, protein: 0, carbs: 0, fat: 0 });
+  var totals = todayLogs.reduce(function(a, e) { return { cal: a.cal + (e.calories||e.cal||0), protein: a.protein + (e.protein||0), carbs: a.carbs + (e.carbs||0), fat: a.fat + (e.fat||0) }; }, { cal: 0, protein: 0, carbs: 0, fat: 0 });
   var remaining = calGoal - totals.cal;
   var last = weekSessions.length > 0 ? weekSessions[weekSessions.length - 1] : null;
   var weekly = calcWeeklySummary(weekSessions, weeklyRow);
@@ -509,7 +509,7 @@ function NutritionTab({ config, todayLogs, onAddMeal, onDeleteMeal, isTrainingDa
   var calGoal = calOverride || (isTrainingDay ? config.nutrition.caloriesTraining : config.nutrition.caloriesRest);
   var carbGoal = isTrainingDay ? config.nutrition.carbsTraining : config.nutrition.carbsRest;
   var fatGoal = isTrainingDay ? config.nutrition.fatTraining : config.nutrition.fatRest;
-var totals = todayLogs.reduce(function(a, e) { return { cal: a.cal + (e.cal||0), protein: a.protein + (e.protein||0), carbs: a.carbs + (e.carbs||0), fat: a.fat + (e.fat||0) }; }, { cal: 0, protein: 0, carbs: 0, fat: 0 });  var remaining = calGoal - totals.cal;
+var totals = todayLogs.reduce(function(a, e) { return { cal: a.cal + (e.calories||e.cal||0), protein: a.protein + (e.protein||0), carbs: a.carbs + (e.carbs||0), fat: a.fat + (e.fat||0) }; }, { cal: 0, protein: 0, carbs: 0, fat: 0 });  var remaining = calGoal - totals.cal;
   var eatOutCount = todayLogs.filter(function(e) { return e.is_eat_out; }).length;
   var homeCount = todayLogs.filter(function(e) { return !e.is_eat_out; }).length;
   function addEntry(data) {
