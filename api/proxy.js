@@ -122,6 +122,7 @@ async function handleSupabase(req, res) {
 // Body shape: { tab, date? }
 
 async function handleSyncSheet(req, res) {
+  console.log("sync-sheet called:", req.body.tab, req.body.date);
   const { tab, date } = req.body;
   const today = date || new Date().toISOString().split("T")[0];
 
