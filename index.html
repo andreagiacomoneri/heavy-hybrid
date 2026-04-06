@@ -130,7 +130,7 @@ var MEALS = ["Breakfast", "Lunch", "Dinner", "Snack"];
 var RIR_MAP = { 4: "Cruise", 3: "Comfortable", 2: "Edge", 1: "Limit" };
 var RIR_LABELS = [{ val: 4, label: "Cruise", sub: "4+ left" }, { val: 3, label: "Comfortable", sub: "2-3 left" }, { val: 2, label: "Edge", sub: "1-2 left" }, { val: 1, label: "Limit", sub: "0/DNF" }];
 var DEFAULT_CONFIG = {
-  athlete: { name: "Heavy Hybrid", weight: 83.5, smm: 38.1, bf: 20.7, scanDate: "March 27, 2026" },
+  athlete: { name: "Gym Fra", weight: 83.5, smm: 38.1, bf: 20.7, scanDate: "March 27, 2026" },
   nutrition: { caloriesTraining: 2300, caloriesRest: 1900, protein: 170, carbsTraining: 248, carbsRest: 170, fatTraining: 70, fatRest: 60 },
   training: { hmaxBpm: 192, pixelWatchCorrection: 0.80 },
   goals: { phase: "cut", targetBf: 14, targetWeight: 77.9 }
@@ -1135,7 +1135,7 @@ function App() {
 
   if (loading) return (
     <div style={{ fontFamily: "system-ui,sans-serif", background: "#f5f5f3", minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-      <div style={{ fontSize: 20, fontWeight: 500, marginBottom: 24 }}>Heavy Hybrid</div>
+      <div style={{ fontSize: 20, fontWeight: 500, marginBottom: 24 }}>Gym Fra</div>
       <Loader />
     </div>
   );
@@ -1143,7 +1143,7 @@ function App() {
   return (
     <div style={{ fontFamily: "system-ui,sans-serif", background: "#f5f5f3", color: "#1a1a1a", minHeight: "100vh", maxWidth: 480, margin: "0 auto", padding: 12 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-        <div style={{ fontSize: 20, fontWeight: 500 }}>Heavy Hybrid</div>
+        <div style={{ fontSize: 20, fontWeight: 500 }}>Gym Fra</div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <span style={{ fontSize: 11, color: "#aaa" }}>{config.athlete.weight} kg · {config.athlete.bf}% BF</span>
           <button style={{ background: "none", border: "0.5px solid #ddd", borderRadius: 8, padding: "6px 10px", cursor: "pointer", fontSize: 14, color: "#888" }} onClick={function() { setShowSettings(true); }}>settings</button>
