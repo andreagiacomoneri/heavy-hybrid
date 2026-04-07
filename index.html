@@ -1033,7 +1033,7 @@ function App() {
       if (Array.isArray(result) && result[0]) {
         setTodayLogs(function(prev) { return prev.map(function(e) { return e.id === tempId ? Object.assign({ cal: entry.cal }, result[0]) : e; }); });
       }
-      upsertDailySummary(td);
+      await upsertDailySummary(td);
       syncSheet();
     } catch(e) {
       setTodayLogs(function(prev) { return prev.filter(function(e) { return e.id !== tempId; }); });
@@ -1045,7 +1045,7 @@ function App() {
     try {
       await supabaseQuery({ action: "delete", table: "meals", filters: [{ column: "id", op: "eq", value: id }] });
       var td = todayISO();
-      upsertDailySummary(td);
+      await upsertDailySummary(td);
       syncSheet();
     } catch(e) { console.error("Delete meal error:", e); }
   }
