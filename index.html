@@ -1025,15 +1025,14 @@ function App() {
       restaurant_type: entry.restaurant_type || ""
     };
     // Optimistic update with temp id
-    var tempId = "tmp_" + Date.now();
-    setTodayLogs(function(prev) { return prev.concat([Object.assign({ id: tempId, cal: entry.cal }, row)]); });
+var tempId = "tmp_" + Date.now();
+    var newEntry = Object.assign({ id: tempId, cal: entry.cal }, row);
+    setTodayLogs(function(prev) { return prev.concat([newEntry]); });
     try {
       var result = await supabaseQuery({ action: "insert", table: "meals", data: row });
-      // Replace temp entry with real one from Supabase
- var currentLogs = todayLogs.map(function(e) { return e.id === tempId ? Object.assign({ cal: entry.cal }, result[0]) : e; });
-      if (Array.isArray(result) && result[0]) {
-        setTodayLogs(function() { return currentLogs; });
-      }
+      var realEntry = (Array.isArray(result) && result[0]) ? Object.assign({ cal: entry.calories || entry.cal }, result[0]) : newEntry;
+      var currentLogs = todayLogs.concat([realEntry]);
+      setTodayLogs(function(prev) { return prev.map(function(e) { return e.id === tempId ? realEntry : e; }); });
       await upsertDailySummary(td, currentLogs);
       syncSheet();
     } catch(e) {
