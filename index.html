@@ -1030,10 +1030,11 @@ function App() {
     try {
       var result = await supabaseQuery({ action: "insert", table: "meals", data: row });
       // Replace temp entry with real one from Supabase
+ var currentLogs = todayLogs.map(function(e) { return e.id === tempId ? Object.assign({ cal: entry.cal }, result[0]) : e; });
       if (Array.isArray(result) && result[0]) {
-        setTodayLogs(function(prev) { return prev.map(function(e) { return e.id === tempId ? Object.assign({ cal: entry.cal }, result[0]) : e; }); });
+        setTodayLogs(function() { return currentLogs; });
       }
-      await upsertDailySummary(td);
+      await upsertDailySummary(td, currentLogs);
       syncSheet();
     } catch(e) {
       setTodayLogs(function(prev) { return prev.filter(function(e) { return e.id !== tempId; }); });
@@ -1050,17 +1051,19 @@ function App() {
     } catch(e) { console.error("Delete meal error:", e); }
   }
 
-  async function upsertDailySummary(td) {
+async function upsertDailySummary(td, logsOverride) {
     var calGoal = getTodayCalGoal();
-    upsertDailySummaryWithGoal(td, calGoal);
+    upsertDailySummaryWithGoal(td, calGoal, logsOverride);
   }
 
-  async function upsertDailySummaryWithGoal(td, calGoal) {
-    var logs = todayLogs;
-    try {
-      var fresh = await supabaseQuery({ action: "select", table: "meals", filters: [{ column: "date", op: "eq", value: td }] });
-      if (Array.isArray(fresh)) logs = fresh;
-    } catch(e) {}
+ async function upsertDailySummaryWithGoal(td, calGoal, logsOverride) {
+    var logs = logsOverride || todayLogs;
+    if (!logsOverride) {
+      try {
+        var fresh = await supabaseQuery({ action: "select", table: "meals", filters: [{ column: "date", op: "eq", value: td }] });
+        if (Array.isArray(fresh)) logs = fresh;
+      } catch(e) {}
+    }
     var totals = logs.reduce(function(a, e) { return { cal: a.cal + (e.calories || e.cal || 0), protein: a.protein + (e.protein||0), carbs: a.carbs + (e.carbs||0), fat: a.fat + (e.fat||0) }; }, { cal: 0, protein: 0, carbs: 0, fat: 0 });
     var eatOut = logs.filter(function(e) { return e.is_eat_out; }).length;
     var burn = burnLogs[td];
