@@ -118,77 +118,68 @@ async function handleSupabase(req, res) {
   return res.status(r.status < 400 ? 200 : r.status).json(result);
 }
 
-// ─── 4. Sheet sync ────────────────────────────────────────────────────────────
-// Body shape: { tab, date? }
+// ─── 4. Sheet rebuild ─────────────────────────────────────────────────────────
+// Rebuilds all Google Sheet tabs from Supabase data.
+// Called on every write action and by nightly cron.
 
 async function handleSyncSheet(req, res) {
-  const { tab, date } = req.body;
-  const today = date || new Date().toISOString().split("T")[0];
+  try {
+    const today = new Date().toISOString().split("T")[0];
 
-  let sheetData;
+    const [
+      dailySummary,
+      meals,
+      trainingSessions,
+      sessionSets,
+      activities,
+      bodyComp,
+      weeklySummary
+    ] = await Promise.all([
+      supabaseSelect("daily_summary", [], "date.asc"),
+      supabaseSelect("meals", [{ column: "date", op: "eq", value: today }], "logged_at.asc"),
+      supabaseSelect("training_sessions", [], "date.asc"),
+      supabaseSelect("session_sets", [], "date.asc"),
+      supabaseSelect("activities", [], "date.asc"),
+      supabaseSelect("body_composition", [], "entry_date.asc"),
+      supabaseSelect("weekly_summary", [], "week_start.asc"),
+    ]);
 
-  switch (tab) {
-    case "daily_summary": {
-      const row   = await supabaseSelect("daily_summary", [{ column: "date", op: "eq", value: today }]);
-      const meals = await supabaseSelect("meals", [{ column: "date", op: "eq", value: today }]);
-      await recalcWeeklySummary(today);
-      sheetData = { tab, row: row[0], meals };
-      break;
-    }
-    case "weekly_summary": {
-      const weekKey = getWeekKey(today);
-      const row = await supabaseSelect("weekly_summary", [{ column: "week_key", op: "eq", value: weekKey }]);
-      sheetData = { tab, row: row[0] };
-      break;
-    }
-    case "today_meals": {
-      const meals = await supabaseSelect("meals", [{ column: "date", op: "eq", value: today }]);
-      sheetData = { tab, meals };
-      break;
-    }
-    case "last_session": {
-      const sessions = await supabaseSelect("training_sessions", [], "date.desc", 1);
-      if (!sessions.length) return res.status(200).json({ ok: true, message: "No sessions yet" });
-      const sets = await supabaseSelect("session_sets", [{ column: "session_id", op: "eq", value: sessions[0].id }]);
-      sheetData = { tab, session: sessions[0], sets };
-      break;
-    }
-    case "body_composition": {
-      const rows = await supabaseSelect("body_composition", [], "entry_date.desc", 1);
-      sheetData = { tab, row: rows[0] };
-      break;
-    }
-    case "activities": {
-      const rows = await supabaseSelect("activities", [], "date.desc", 1);
-      sheetData = { tab, row: rows[0] };
-      break;
-    }
-    case "training_sessions": {
-      const rows = await supabaseSelect("training_sessions", [], "date.desc", 1);
-      sheetData = { tab, row: rows[0] };
-      break;
-    }
-    default:
-      return res.status(400).json({ error: `Unknown tab: ${tab}` });
+    // Get last session for Last Session Detail tab
+    const lastSession = trainingSessions.length ? trainingSessions[trainingSessions.length - 1] : null;
+    const lastSessionSets = lastSession
+      ? sessionSets.filter(s => s.session_id === lastSession.id)
+      : [];
+
+    const payload = {
+      secret: SHEETS_SECRET,
+      action: "rebuildAll",
+      today,
+      dailySummary,
+      meals,
+      trainingSessions,
+      lastSession,
+      lastSessionSets,
+      activities,
+      bodyComp,
+      weeklySummary,
+    };
+
+    const r = await fetch(SHEETS_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const result = await r.json();
+    return res.status(200).json(result);
+  } catch (err) {
+    console.error("rebuildSheet error:", err);
+    return res.status(500).json({ error: err.message });
   }
-
-  const r = await fetch(SHEETS_ENDPOINT, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ secret: SHEETS_SECRET, ...sheetData }),
-  });
-  const result = await r.json();
-  return res.status(200).json(result);
 }
 
 // ─── 5. Nightly reconciliation ────────────────────────────────────────────────
 async function handleReconcile(req, res) {
-  const today = new Date().toISOString().split("T")[0];
-  const tabs = ["daily_summary", "weekly_summary", "today_meals"];
-  for (const tab of tabs) {
-    await handleSyncSheet({ body: { tab, date: today } }, { status: () => ({ json: () => {} }) });
-  }
-  return res.status(200).json({ ok: true, reconciled: tabs });
+  return handleSyncSheet(req, res);
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
