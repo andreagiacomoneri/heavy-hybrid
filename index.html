@@ -41,12 +41,12 @@ async function supabaseQuery({ action, table, data, filters, order, limit }) {
   return res.json();
 }
 
-// Trigger a sheet sync for a specific tab
-async function syncSheet(tab, date) {
+// Trigger a full sheet rebuild from Supabase
+function syncSheet() {
   fetch(PROXY + "?target=sync-sheet", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ tab, date: date || todayISO() })
+    body: JSON.stringify({})
   }).catch(function() {});
 }
 
@@ -459,8 +459,7 @@ function TrainingTab({ config, onSessionSaved, lastSessionSets }) {
       }
 
       setSyncStatus("ok");
-      syncSheet("last_session");
-      syncSheet("training_sessions");
+      syncSheet();
       onSessionSaved({ ...sessionRow, id: sessionId });
     } catch(e) {
       setSyncStatus("fail");
@@ -1034,8 +1033,7 @@ function App() {
         setTodayLogs(function(prev) { return prev.map(function(e) { return e.id === tempId ? Object.assign({ cal: entry.cal }, result[0]) : e; }); });
       }
       upsertDailySummary(td);
-      syncSheet("today_meals", td);
-      syncSheet("daily_summary", td);
+      syncSheet();
     } catch(e) {
       setTodayLogs(function(prev) { return prev.filter(function(e) { return e.id !== tempId; }); });
     }
@@ -1047,8 +1045,7 @@ function App() {
       await supabaseQuery({ action: "delete", table: "meals", filters: [{ column: "id", op: "eq", value: id }] });
       var td = todayISO();
       upsertDailySummary(td);
-      syncSheet("today_meals", td);
-      syncSheet("daily_summary", td);
+      syncSheet();
     } catch(e) { console.error("Delete meal error:", e); }
   }
 
@@ -1092,7 +1089,7 @@ function App() {
       var base = (Array.isArray(existing) && existing[0]) || { date: iso };
       var cal = base.calories || 0;
       await supabaseQuery({ action: "upsert", table: "daily_summary", data: Object.assign({}, base, { calories_burned: value, energy_balance: cal ? cal - corrected : null }) });
-      syncSheet("daily_summary", iso);
+      syncSheet();
     } catch(e) { console.error("Save burn error:", e); }
   }
 
@@ -1103,7 +1100,7 @@ function App() {
     setOmronLogs(function(prev) { var n = Object.assign({}, prev); n[weekKey] = row; return n; });
     try {
       await supabaseQuery({ action: "upsert", table: "body_composition", data: row });
-      syncSheet("body_composition");
+      syncSheet();
     } catch(e) { console.error("Omron save error:", e); }
   }
 
@@ -1139,7 +1136,7 @@ function App() {
       supabaseQuery({ action: "insert", table: "activities", data: row })
         .then(function() {
           setActivities(function(prev) { return prev.concat([row]); });
-          syncSheet("activities", patch.date);
+          syncSheet();
         })
         .catch(function(e) { console.error("Activity patch error:", e); });
     }
