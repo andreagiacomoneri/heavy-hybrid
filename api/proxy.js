@@ -260,9 +260,10 @@ async function recalcWeeklySummary(date) {
 }
 
 function getWeekKey(date) {
-  const d    = new Date(date + "T12:00:00");
+  const d = new Date(date + "T12:00:00");
+  d.setDate(d.getDate() + 4 - (d.getDay() || 7));
   const jan1 = new Date(d.getFullYear(), 0, 1);
-  const week = Math.ceil(((d - jan1) / 86400000 + jan1.getDay() + 1) / 7);
+  const week = Math.ceil(((d - jan1) / 86400000 + 1) / 7);
   return `${d.getFullYear()}_W${String(week).padStart(2, "0")}`;
 }
 
