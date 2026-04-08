@@ -1050,8 +1050,13 @@ var tempId = "tmp_" + Date.now();
     } catch(e) { console.error("Delete meal error:", e); }
   }
 
-async function upsertDailySummary(td, logsOverride) {
-    var calGoal = getTodayCalGoal();
+async function upsertDailySummaryForDate(date) {
+    var isTraining = allSessions.some(function(s) { return s.date === date; });
+    var calGoal = calOverrides[date] || (isTraining ? config.nutrition.caloriesTraining : config.nutrition.caloriesRest);
+    upsertDailySummaryWithGoal(date, calGoal);
+  }
+
+  async function upsertDailySummary(td, logsOverride) {    var calGoal = getTodayCalGoal();
     upsertDailySummaryWithGoal(td, calGoal, logsOverride);
   }
 
@@ -1119,7 +1124,12 @@ async function upsertDailySummary(td, logsOverride) {
       if (!patch.date || patch.date === todayISO()) {
         handleAddMeal(entry);
       } else {
-        var row = { date: patch.date, meal_type: entry.meal_type, food: entry.food, description: entry.description, calories: entry.calories || entry.cal, protein: entry.protein, carbs: entry.carbs, fat: entry.fat, is_eat_out: entry.is_eat_out, restaurant_type: entry.restaurant_type };        supabaseQuery({ action: "insert", table: "meals", data: row }).catch(function() {});
+        var row = { date: patch.date, meal_type: entry.meal_type, food: entry.food, description: entry.description, calories: entry.calories || entry.cal, protein: entry.protein, carbs: entry.carbs, fat: entry.fat, is_eat_out: entry.is_eat_out, restaurant_type: entry.restaurant_type };supabaseQuery({ action: "insert", table: "meals", data: row })
+          .then(function() {
+            upsertDailySummaryForDate(patch.date);
+            syncSheet();
+          })
+          .catch(function() {});
       }
  } else if (patch.type === "calorie_override") {
       var updated = Object.assign({}, calOverrides); updated[patch.date] = patch.caloriesOverride;
