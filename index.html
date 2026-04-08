@@ -396,7 +396,7 @@ function TrainingTab({ config, onSessionSaved, lastSessionSets }) {
     if (si < ex.sets - 1) { setTrainState({ bk: bk, ei: ei, si: si + 1 }); return; }
     if (ei < b.exercises.length - 1) { setTrainState({ bk: bk, ei: ei + 1, si: 0 }); return; }
     var bIdx = session.blocks.findIndex(function(x) { return x.id === bk; });
-    if (bIdx < session.blocks.length - 1) { var nb = session.blocks[bIdx + 1].id; setTrainState({ bk: nb, ei: 0, si: 0 }); setPhase(nb); }
+    if (bIdx < session.blocks.length - 1) { var nb = session.blocks[bIdx + 1].id; setPhase(nb); setTrainState({ bk: nb, ei: 0, si: 0 }); }
     else { var d = sessionStartTime ? Math.round((Date.now() - sessionStartTime) / 60000) : null; saveSession(d); setPhase("complete"); }
   }
 
