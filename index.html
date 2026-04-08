@@ -738,13 +738,14 @@ function CalendarTab({ config, burnLogs, onSaveBurn, weekSessions, allSessions, 
   var firstDay = (new Date(year, month, 1).getDay() + 6) % 7;
   var correction = config.training.pixelWatchCorrection; var today = todayISO();
 
-  function getWeeksInMonth() {
+function getWeeksInMonth() {
     var weeks = [];
     for (var d = 1; d <= daysInMonth; d++) {
       var iso = year + "-" + String(month + 1).padStart(2, "0") + "-" + String(d).padStart(2, "0");
       var wk = getWeekKey(iso);
       if (!weeks.find(function(w) { return w.key === wk; })) {
-        var start = new Date(iso + "T12:00:00"); var end = new Date(start); end.setDate(start.getDate() + 6);
+        var start = new Date(getWeekStart(iso) + "T12:00:00");
+        var end = new Date(start); end.setDate(start.getDate() + 6);
         weeks.push({ key: wk, label: start.toLocaleDateString("en", { month: "short", day: "numeric" }) + " – " + end.toLocaleDateString("en", { month: "short", day: "numeric" }) });
       }
     }
