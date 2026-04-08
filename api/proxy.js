@@ -123,8 +123,9 @@ async function handleSupabase(req, res) {
 // Called on every write action and by nightly cron.
 
 async function handleSyncSheet(req, res) {
-  try {
+// Recalculate weekly summary before rebuilding sheet
     const today = new Date().toISOString().split("T")[0];
+    await recalcWeeklySummary(today);
 
     const [
       dailySummary,
