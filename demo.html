@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Heavy Hybrid — Demo</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #f5f5f3; font-family: system-ui, sans-serif; color: #1a1a1a; }
+input, select, textarea, button { font-family: inherit; }
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState } = React;
+
+// ── DEMO DATA ─────────────────────────────────────────────────
+const CONFIG = {
+  athlete: { name: "Andrea", weight: 83.5, smm: 38.1, bf: 20.7, scanDate: "March 27, 2026" },
+  nutrition: { caloriesTraining: 2300, caloriesRest: 1900, protein: 170, carbsTraining: 248, carbsRest: 170, fatTraining: 70, fatRest: 60 },
+  training: { hmaxBpm: 192, pixelWatchCorrection: 0.80 },
+  goals: { phase: "cut", targetBf: 14, targetWeight: 77.9 }
+};
+
+const DAILY_SUMMARY = [
+  { date: "2026-03-30", calories: 2140, protein: 158, carbs: 198, fat: 58, calorie_goal: 2300, calorie_delta: -160, protein_goal: 170, protein_delta: -12, calories_burned: 2700, energy_balance: -20, eat_out_meals: 0 },
+  { date: "2026-03-31", calories: 1800, protein: 62, carbs: 170, fat: 78, calorie_goal: 1900, calorie_delta: -100, protein_goal: 170, protein_delta: -108, calories_burned: 2060, energy_balance: -848, eat_out_meals: 2 },
+  { date: "2026-04-01", calories: 1900, protein: 174, carbs: 122, fat: 54, calorie_goal: 2300, calorie_delta: -400, protein_goal: 170, protein_delta: 4, calories_burned: 2840, energy_balance: -372, eat_out_meals: 0 },
+  { date: "2026-04-02", calories: 1540, protein: 84, carbs: 158, fat: 46, calorie_goal: 1900, calorie_delta: -360, protein_goal: 170, protein_delta: -86, calories_burned: 2040, energy_balance: -1092, eat_out_meals: 1 },
+  { date: "2026-04-03", calories: 1650, protein: 73, carbs: 210, fat: 48, calorie_goal: 2300, calorie_delta: -650, protein_goal: 170, protein_delta: -97, calories_burned: 2580, energy_balance: -414, eat_out_meals: 1 },
+  { date: "2026-04-04", calories: 1700, protein: 106, carbs: 136, fat: 52, calorie_goal: 1900, calorie_delta: -200, protein_goal: 170, protein_delta: -64, calories_burned: 2020, energy_balance: -916, eat_out_meals: 1 },
+  { date: "2026-04-05", calories: 1140, protein: 86, carbs: 122, fat: 24, calorie_goal: 2300, calorie_delta: -1160, protein_goal: 170, protein_delta: -84, calories_burned: 2640, energy_balance: -972, eat_out_meals: 0 },
+  { date: "2026-04-06", calories: 2320, protein: 180, carbs: 242, fat: 50, calorie_goal: 2300, calorie_delta: 20, protein_goal: 170, protein_delta: 10, calories_burned: 2740, energy_balance: -72, eat_out_meals: 0 },
+  { date: "2026-04-07", calories: 2168, protein: 118, carbs: 151, fat: 94, calorie_goal: 1900, calorie_delta: 268, protein_goal: 170, protein_delta: -52, calories_burned: 2180, energy_balance: 422, eat_out_meals: 0 },
+  { date: "2026-04-08", calories: 520, protein: 22, carbs: 52, fat: 24, calorie_goal: 2300, calorie_delta: -1780, protein_goal: 170, protein_delta: -148, calories_burned: null, energy_balance: null, eat_out_meals: 0 },
+];
+
+const TODAY_MEALS = [
+  { id: "1", date: "2026-04-08", logged_at: "2026-04-08T09:03:00Z", meal_type: "Breakfast", food: "Two poached eggs with bread, soy milk and crumble pie", calories: 520, protein: 22, carbs: 52, fat: 24, is_eat_out: false, restaurant_type: "", description: "2 poached eggs, 2 slices bread, 150ml soy milk, 20g crumble pie" },
+];
+
+const ALL_SESSIONS = [
+  { id: "s1", date: "2026-03-30", title: "Full Body Strength A", difficulty_kg: 2900, completion_pct: 96, actual_duration: 66 },
+  { id: "s2", date: "2026-04-01", title: "MetCon — AMRAP", difficulty_kg: 0, completion_pct: 100, actual_duration: 46 },
+  { id: "s3", date: "2026-04-03", title: "Full Body Strength B", difficulty_kg: 2720, completion_pct: 80, actual_duration: 74 },
+  { id: "s4", date: "2026-04-05", title: "Full Body Strength A", difficulty_kg: 2900, completion_pct: 96, actual_duration: 63 },
+  { id: "s5", date: "2026-04-08", title: "Full Body Strength + Pull-up Protocol", difficulty_kg: 2460, completion_pct: 88, actual_duration: 67 },
+];
+
+const LAST_SESSION_SETS = [
+  { session_id: "s5", block: "Block A — Pull-up Protocol", exercise: "Unassisted Pull-ups", set_number: 1, target_reps: 4, target_kg: 0, actual_reps: 4, actual_kg: 0, rir_score: 2, rir_label: "Edge" },
+  { session_id: "s5", block: "Block A — Pull-up Protocol", exercise: "Band-Assisted Pull-ups", set_number: 1, target_reps: 8, target_kg: 0, actual_reps: 8, actual_kg: 0, rir_score: 3, rir_label: "Comfortable" },
+  { session_id: "s5", block: "Block A — Pull-up Protocol", exercise: "Band-Assisted Pull-ups", set_number: 2, target_reps: 8, target_kg: 0, actual_reps: 7, actual_kg: 0, rir_score: 2, rir_label: "Edge" },
+  { session_id: "s5", block: "Block A — Pull-up Protocol", exercise: "Band-Assisted Pull-ups", set_number: 3, target_reps: 8, target_kg: 0, actual_reps: 6, actual_kg: 0, rir_score: 1, rir_label: "Limit" },
+  { session_id: "s5", block: "Block B — Strength Base", exercise: "Goblet Squats", set_number: 1, target_reps: 10, target_kg: 24, actual_reps: 10, actual_kg: 24, rir_score: 3, rir_label: "Comfortable" },
+  { session_id: "s5", block: "Block B — Strength Base", exercise: "Goblet Squats", set_number: 2, target_reps: 10, target_kg: 24, actual_reps: 10, actual_kg: 24, rir_score: 2, rir_label: "Edge" },
+  { session_id: "s5", block: "Block B — Strength Base", exercise: "Goblet Squats", set_number: 3, target_reps: 10, target_kg: 24, actual_reps: 9, actual_kg: 24, rir_score: 1, rir_label: "Limit" },
+  { session_id: "s5", block: "Block B — Strength Base", exercise: "Dumbbell Bench Press", set_number: 1, target_reps: 10, target_kg: 22, actual_reps: 10, actual_kg: 22, rir_score: 3, rir_label: "Comfortable" },
+  { session_id: "s5", block: "Block B — Strength Base", exercise: "Dumbbell Bench Press", set_number: 2, target_reps: 10, target_kg: 22, actual_reps: 10, actual_kg: 22, rir_score: 2, rir_label: "Edge" },
+  { session_id: "s5", block: "Block B — Strength Base", exercise: "Dumbbell Bench Press", set_number: 3, target_reps: 10, target_kg: 22, actual_reps: 9, actual_kg: 22, rir_score: 1, rir_label: "Limit" },
+  { session_id: "s5", block: "Block C — MetCon", exercise: "Kettlebell Swings", set_number: 1, target_reps: 15, target_kg: 24, actual_reps: 15, actual_kg: 24, rir_score: 3, rir_label: "Comfortable" },
+  { session_id: "s5", block: "Block C — MetCon", exercise: "Kettlebell Swings", set_number: 2, target_reps: 15, target_kg: 24, actual_reps: 15, actual_kg: 24, rir_score: 2, rir_label: "Edge" },
+  { session_id: "s5", block: "Block C — MetCon", exercise: "Kettlebell Swings", set_number: 3, target_reps: 15, target_kg: 24, actual_reps: 13, actual_kg: 24, rir_score: 1, rir_label: "Limit" },
+];
+
+const ACTIVITIES = [
+  { id: "a1", date: "2026-03-22", type: "Kayak", duration: 150, calories_burned: 880, avg_hr: 108, peak_hr: 134, zone_minutes: { z1: 30, z2: 85, z3: 35 }, elevation_gain: 0, notes: "Lago di Como, flat water" },
+  { id: "a2", date: "2026-03-28", type: "Run", duration: 38, calories_burned: 480, avg_hr: 148, peak_hr: 168, zone_minutes: { z1: 3, z2: 10, z3: 16, z4: 8, z5: 1 }, elevation_gain: 32, notes: "Recovery run" },
+];
+
+const BODY_COMP = [
+  { entry_date: "2026-03-08", week_number: 10, bodyweight: 84.2, body_fat: 21.2, lean_mass: 66.3, fat_mass: 17.9 },
+  { entry_date: "2026-03-15", week_number: 11, bodyweight: 83.8, body_fat: 21.0, lean_mass: 66.2, fat_mass: 17.6 },
+  { entry_date: "2026-03-22", week_number: 12, bodyweight: 83.5, body_fat: 20.8, lean_mass: 66.1, fat_mass: 17.4 },
+  { entry_date: "2026-03-29", week_number: 13, bodyweight: 83.1, body_fat: 20.6, lean_mass: 65.9, fat_mass: 17.2 },
+  { entry_date: "2026-04-05", week_number: 14, bodyweight: 82.8, body_fat: 20.4, lean_mass: 65.9, fat_mass: 16.9 },
+];
+
+const WEEKLY_SUMMARY = {
+  "2026_W14": { week_key: "2026_W14", week_start: "2026-03-30", days_logged: 7, avg_calories: 1859, avg_protein: 112, protein_compliance: 29, calorie_compliance: 43, eat_out_meals: 4, sessions: 4, total_difficulty: 11020, avg_energy_balance: -534 },
+  "2026_W15": { week_key: "2026_W15", week_start: "2026-04-06", days_logged: 3, avg_calories: 1549, avg_protein: 107, protein_compliance: 33, calorie_compliance: 33, eat_out_meals: 0, sessions: 1, total_difficulty: 2460, avg_energy_balance: -175 },
+};
+
+const BURN_LOGS = DAILY_SUMMARY.reduce(function(acc, r) { if (r.calories_burned) acc[r.date] = r.calories_burned; return acc; }, {});
+const DAILY_MAP = DAILY_SUMMARY.reduce(function(acc, r) { acc[r.date] = r; return acc; }, {});
+const OMRON_LOGS = {
+  "2026_W10": BODY_COMP[0],
+  "2026_W11": BODY_COMP[1],
+  "2026_W12": BODY_COMP[2],
+  "2026_W13": BODY_COMP[3],
+  "2026_W14": BODY_COMP[4],
+};
+
+// ── UTILS ─────────────────────────────────────────────────────
+function todayISO() { return "2026-04-08"; }
+function fmtDate(iso) {
+  if (iso === "2026-04-08") return "Today";
+  if (iso === "2026-04-07") return "Yesterday";
+  return new Date(iso + "T12:00:00").toLocaleDateString("en", { weekday: "short", month: "short", day: "numeric" });
+}
+function getWeekKey(iso) {
+  var d = new Date(iso + "T12:00:00");
+  d.setDate(d.getDate() + 4 - (d.getDay() || 7));
+  var jan1 = new Date(d.getFullYear(), 0, 1);
+  var week = Math.ceil(((d - jan1) / 86400000 + 1) / 7);
+  return d.getFullYear() + "_W" + String(week).padStart(2, "0");
+}
+function getWeekStart(iso) {
+  var d = new Date(iso + "T12:00:00"); var day = (d.getDay() + 6) % 7;
+  d.setDate(d.getDate() - day); return d.toISOString().slice(0, 10);
+}
+var RIR_MAP = { 4: "Cruise", 3: "Comfortable", 2: "Edge", 1: "Limit" };
+
+// ── SHARED COMPONENTS ─────────────────────────────────────────
+function Card({ children, style }) { return <div style={Object.assign({ background: "#fff", border: "0.5px solid #ddd", borderRadius: 12, marginBottom: 12, overflow: "hidden" }, style || {})}>{children}</div>; }
+function CardHdr({ left, right }) { return <div style={{ background: "#1a1a1a", color: "#fff", padding: "10px 14px", fontSize: 13, fontWeight: 500, display: "flex", justifyContent: "space-between", alignItems: "center" }}><span>{left}</span><span>{right}</span></div>; }
+function MacroBar({ label, value, goal, color }) {
+  var over = value > goal; var pct = Math.min((value / goal) * 100, 100);
+  return (
+    <div style={{ marginBottom: 8 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}><span style={{ fontWeight: 500 }}>{label}</span><span style={{ color: over ? "#ef4444" : "#888" }}>{value} / {goal}{label === "Calories" ? " kcal" : "g"}</span></div>
+      <div style={{ background: "#e5e7eb", borderRadius: 99, height: 8, overflow: "hidden", marginTop: 3 }}><div style={{ width: pct + "%", background: over ? "#ef4444" : color, height: "100%", borderRadius: 99 }} /></div>
+    </div>
+  );
+}
+
+// ── DASHBOARD ─────────────────────────────────────────────────
+function Dashboard({ onTabChange }) {
+  var today = todayISO();
+  var todayData = DAILY_MAP[today] || {};
+  var isTrainingDay = ALL_SESSIONS.some(function(s) { return s.date === today; });
+  var calGoal = isTrainingDay ? CONFIG.nutrition.caloriesTraining : CONFIG.nutrition.caloriesRest;
+  var carbGoal = isTrainingDay ? CONFIG.nutrition.carbsTraining : CONFIG.nutrition.carbsRest;
+  var fatGoal = isTrainingDay ? CONFIG.nutrition.fatTraining : CONFIG.nutrition.fatRest;
+  var calories = todayData.calories || 0;
+  var remaining = calGoal - calories;
+  var weekly = WEEKLY_SUMMARY["2026_W15"] || {};
+  var last = ALL_SESSIONS[ALL_SESSIONS.length - 1];
+  return (
+    <div>
+      <Card>
+        <CardHdr left="Today — Nutrition" right={<span style={{ fontSize: 11, color: "#aaa" }}>{fmtDate(today)}</span>} />
+        <div style={{ padding: 14 }}>
+          <MacroBar label="Calories" value={calories} goal={calGoal} color="#a5f3fc" />
+          <MacroBar label="Protein" value={todayData.protein || 0} goal={CONFIG.nutrition.protein} color="#86efac" />
+          <MacroBar label="Carbs" value={todayData.carbs || 0} goal={carbGoal} color="#fde68a" />
+          <MacroBar label="Fat" value={todayData.fat || 0} goal={fatGoal} color="#fca5a5" />
+          <div style={{ marginTop: 10, fontSize: 13, fontWeight: 500, color: remaining >= 0 ? "#166534" : "#dc2626" }}>{remaining >= 0 ? remaining + " kcal remaining" : Math.abs(remaining) + " kcal over goal"}</div>
+          <div style={{ fontSize: 11, color: "#aaa", marginTop: 4 }}>{isTrainingDay ? "Training day targets" : "Rest day targets"}</div>
+        </div>
+      </Card>
+      <Card>
+        <CardHdr left="This week" />
+        <div style={{ padding: 14 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 12 }}>
+            {[["Sessions", weekly.sessions || 0], ["Meals", 4], ["Eat-out", weekly.eat_out_meals || 0]].map(function(item) { return <div key={item[0]} style={{ background: "#f5f5f3", borderRadius: 8, padding: "8px 10px", textAlign: "center" }}><div style={{ fontSize: 20, fontWeight: 500 }}>{item[1]}</div><div style={{ fontSize: 10, color: "#aaa" }}>{item[0]}</div></div>; })}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            {[["Avg calories", (weekly.avg_calories || "-") + " kcal"], ["Avg protein", (weekly.avg_protein || "-") + "g"], ["Protein target", (weekly.protein_compliance !== undefined ? weekly.protein_compliance : "-") + "%"], ["Days logged", (weekly.days_logged || "-") + " / 7"]].map(function(item) { return <div key={item[0]} style={{ background: "#f5f5f3", borderRadius: 8, padding: "8px 10px", textAlign: "center" }}><div style={{ fontSize: 15, fontWeight: 500 }}>{item[1]}</div><div style={{ fontSize: 10, color: "#aaa" }}>{item[0]}</div></div>; })}
+          </div>
+        </div>
+      </Card>
+      <Card>
+        <CardHdr left="Last session" />
+        <div style={{ padding: 14 }}>
+          <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 4 }}>{last.title}</div>
+          <div style={{ fontSize: 12, color: "#888", marginBottom: 10 }}>{last.date}{last.actual_duration ? " · " + last.actual_duration + " min" : ""}</div>
+          <div style={{ display: "flex", gap: 12 }}>
+            {[["difficulty kg", last.difficulty_kg + " kg"], ["completion", last.completion_pct + "%"]].map(function(item) { return <div key={item[0]} style={{ flex: 1, background: "#f5f5f3", borderRadius: 8, padding: "8px 10px", textAlign: "center" }}><div style={{ fontSize: 18, fontWeight: 500 }}>{item[1]}</div><div style={{ fontSize: 10, color: "#aaa" }}>{item[0]}</div></div>; })}
+          </div>
+        </div>
+      </Card>
+      <Card>
+        <CardHdr left="Body composition" right={<span style={{ fontSize: 11, color: "#aaa" }}>{CONFIG.athlete.scanDate}</span>} />
+        <div style={{ padding: 14 }}>
+          {[["Weight", CONFIG.athlete.weight + " kg"], ["SMM", CONFIG.athlete.smm + " kg"], ["Body Fat", CONFIG.athlete.bf + "%"], ["Phase", CONFIG.goals.phase], ["Target", CONFIG.goals.targetWeight + " kg"]].map(function(item) { return <div key={item[0]} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "4px 0", borderBottom: "0.5px solid #f0f0f0" }}><span style={{ color: "#888" }}>{item[0]}</span><span style={{ fontWeight: 500 }}>{item[1]}</span></div>; })}
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+// ── NUTRITION ─────────────────────────────────────────────────
+function NutritionTab() {
+  var [nutTab, setNutTab] = useState("meals");
+  var today = todayISO();
+  var isTrainingDay = ALL_SESSIONS.some(function(s) { return s.date === today; });
+  var calGoal = isTrainingDay ? CONFIG.nutrition.caloriesTraining : CONFIG.nutrition.caloriesRest;
+  var carbGoal = isTrainingDay ? CONFIG.nutrition.carbsTraining : CONFIG.nutrition.carbsRest;
+  var fatGoal = isTrainingDay ? CONFIG.nutrition.fatTraining : CONFIG.nutrition.fatRest;
+  var totals = TODAY_MEALS.reduce(function(a, e) { return { cal: a.cal + (e.calories||0), protein: a.protein + (e.protein||0), carbs: a.carbs + (e.carbs||0), fat: a.fat + (e.fat||0) }; }, { cal: 0, protein: 0, carbs: 0, fat: 0 });
+  var remaining = calGoal - totals.cal;
+  var MEALS = ["Breakfast", "Lunch", "Dinner", "Snack"];
+  return (
+    <div>
+      <Card>
+        <CardHdr left="Nutrition — Today" right={<span style={{ fontSize: 11, color: "#aaa" }}>{isTrainingDay ? "Training" : "Rest"} day</span>} />
+        <div style={{ padding: 14 }}>
+          <MacroBar label="Calories" value={totals.cal} goal={calGoal} color="#a5f3fc" />
+          <MacroBar label="Protein" value={totals.protein} goal={CONFIG.nutrition.protein} color="#86efac" />
+          <MacroBar label="Carbs" value={totals.carbs} goal={carbGoal} color="#fde68a" />
+          <MacroBar label="Fat" value={totals.fat} goal={fatGoal} color="#fca5a5" />
+          <div style={{ marginTop: 8, fontSize: 13, fontWeight: 500, color: remaining >= 0 ? "#166534" : "#dc2626" }}>{remaining >= 0 ? remaining + " kcal remaining" : Math.abs(remaining) + " kcal over goal"}</div>
+          <div style={{ marginTop: 8, display: "flex", gap: 10 }}>
+            {[["Meals", TODAY_MEALS.length], ["Home", TODAY_MEALS.filter(function(e) { return !e.is_eat_out; }).length], ["Eat-out", TODAY_MEALS.filter(function(e) { return e.is_eat_out; }).length]].map(function(item) { return <div key={item[0]} style={{ flex: 1, background: "#f5f5f3", borderRadius: 8, padding: "5px 8px", textAlign: "center" }}><div style={{ fontSize: 15, fontWeight: 500 }}>{item[1]}</div><div style={{ fontSize: 10, color: "#aaa" }}>{item[0]}</div></div>; })}
+          </div>
+        </div>
+      </Card>
+      <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+        {[["meals","Today's Meals"],["history","History"]].map(function(item) { return <button key={item[0]} onClick={function() { setNutTab(item[0]); }} style={{ flex: 1, padding: "8px 0", borderRadius: 10, border: "0.5px solid #ccc", cursor: "pointer", fontWeight: 500, fontSize: 13, background: nutTab === item[0] ? "#1a1a1a" : "#fff", color: nutTab === item[0] ? "#fff" : "#666" }}>{item[1]}</button>; })}
+      </div>
+      {nutTab === "meals" && (
+        <div>
+          {!TODAY_MEALS.length && <div style={{ textAlign: "center", color: "#aaa", marginTop: 40, fontSize: 14 }}>Nothing logged today yet.</div>}
+          {MEALS.map(function(m) {
+            var entries = TODAY_MEALS.filter(function(e) { return e.meal_type === m; }); if (!entries.length) return null;
+            return <div key={m} style={{ marginBottom: 14 }}><div style={{ fontWeight: 500, fontSize: 11, color: "#888", marginBottom: 6, textTransform: "uppercase", letterSpacing: 1 }}>{m}</div>{entries.map(function(e) { return <div key={e.id} style={{ background: "#fff", border: "0.5px solid #ddd", borderRadius: 10, marginBottom: 6, padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}><div><div style={{ fontWeight: 500, fontSize: 14 }}>{e.food}<span style={{ fontSize: 10, background: "#dcfce7", color: "#166534", borderRadius: 4, padding: "1px 5px", marginLeft: 4 }}>home</span></div><div style={{ fontSize: 12, color: "#aaa" }}>P: {e.protein}g · C: {e.carbs}g · F: {e.fat}g</div></div><span style={{ fontWeight: 500 }}>{e.calories} kcal</span></div>; })}</div>;
+          })}
+          {TODAY_MEALS.length > 0 && <div style={{ background: "#f5f5f3", border: "0.5px solid #ddd", borderRadius: 10, padding: "10px 14px" }}><div style={{ fontWeight: 500, fontSize: 13 }}>Totals</div><div style={{ fontSize: 12, color: "#888", marginTop: 4 }}>{totals.cal} kcal · {totals.protein}g P · {totals.carbs}g C · {totals.fat}g F</div></div>}
+        </div>
+      )}
+      {nutTab === "history" && (
+        <div>
+          {DAILY_SUMMARY.slice().reverse().map(function(d) {
+            var isTraining = ALL_SESSIONS.some(function(s) { return s.date === d.date; });
+            var goal = isTraining ? CONFIG.nutrition.caloriesTraining : CONFIG.nutrition.caloriesRest;
+            var delta = d.calories - goal;
+            return (
+              <Card key={d.date}>
+                <div style={{ padding: "10px 14px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                    <span style={{ fontWeight: 500, fontSize: 14 }}>{fmtDate(d.date)}</span>
+                    <span style={{ fontSize: 12, color: delta > 0 ? "#dc2626" : "#166534", fontWeight: 500 }}>{delta > 0 ? "+" : ""}{delta} kcal</span>
+                  </div>
+                  <MacroBar label="Calories" value={d.calories} goal={goal} color="#a5f3fc" />
+                  <MacroBar label="Protein" value={d.protein} goal={CONFIG.nutrition.protein} color="#86efac" />
+                  <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
+                    {[["Eat-out", d.eat_out_meals], ["Burn", d.calories_burned ? Math.round(d.calories_burned * 0.8) + " kcal" : "-"], ["Balance", d.energy_balance ? d.energy_balance + " kcal" : "-"]].map(function(item) { return <div key={item[0]} style={{ flex: 1, background: "#f5f5f3", borderRadius: 6, padding: "4px 6px", textAlign: "center" }}><div style={{ fontSize: 13, fontWeight: 500 }}>{item[1]}</div><div style={{ fontSize: 9, color: "#aaa" }}>{item[0]}</div></div>; })}
+                  </div>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── TRAINING ──────────────────────────────────────────────────
+function TrainingTab() {
+  var [selectedSession, setSelectedSession] = useState(null);
+  if (selectedSession) {
+    var sets = LAST_SESSION_SETS.filter(function(s) { return s.session_id === selectedSession.id; });
+    var blocks = sets.reduce(function(acc, s) { if (!acc[s.block]) acc[s.block] = []; acc[s.block].push(s); return acc; }, {});
+    return (
+      <div>
+        <button onClick={function() { setSelectedSession(null); }} style={{ background: "none", border: "0.5px solid #ddd", borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontSize: 13, marginBottom: 14, color: "#666" }}>← Back</button>
+        <Card>
+          <CardHdr left={selectedSession.title} right={<span style={{ fontSize: 11, color: "#aaa" }}>{selectedSession.date}</span>} />
+          <div style={{ padding: 14 }}>
+            <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
+              {[["difficulty", selectedSession.difficulty_kg + " kg"], ["completion", selectedSession.completion_pct + "%"], ["duration", (selectedSession.actual_duration || "-") + " min"]].map(function(item) { return <div key={item[0]} style={{ flex: 1, background: "#f5f5f3", borderRadius: 8, padding: "8px 10px", textAlign: "center" }}><div style={{ fontSize: 16, fontWeight: 500 }}>{item[1]}</div><div style={{ fontSize: 10, color: "#aaa" }}>{item[0]}</div></div>; })}
+            </div>
+            {Object.keys(blocks).map(function(blockLabel) {
+              var exMap = blocks[blockLabel].reduce(function(acc, s) { if (!acc[s.exercise]) acc[s.exercise] = []; acc[s.exercise].push(s); return acc; }, {});
+              return (
+                <div key={blockLabel} style={{ marginBottom: 14 }}>
+                  <div style={{ fontSize: 11, color: "#888", fontWeight: 500, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>{blockLabel}</div>
+                  {Object.keys(exMap).map(function(exName) {
+                    return (
+                      <div key={exName} style={{ background: "#f9f9f7", borderRadius: 8, padding: "10px 12px", marginBottom: 8 }}>
+                        <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 6 }}>{exName}</div>
+                        {exMap[exName].map(function(s) {
+                          var below = s.actual_reps < s.target_reps;
+                          return <div key={s.set_number} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, padding: "3px 0", color: "#555" }}><span>Set {s.set_number}</span><span>{s.actual_reps} reps · {s.actual_kg > 0 ? s.actual_kg + " kg" : "BW"} · {s.rir_label}{below ? <span style={{ color: "#dc2626", fontSize: 10 }}> ↓</span> : null}</span></div>;
+                        })}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      </div>
+    );
+  }
+  return (
+    <div>
+      <Card>
+        <CardHdr left="Recent sessions" />
+        <div>
+          {ALL_SESSIONS.slice().reverse().map(function(s, i) {
+            var isLast = i === 0;
+            return (
+              <div key={s.id} onClick={function() { if (isLast) setSelectedSession(s); }} style={{ padding: "12px 14px", borderBottom: "0.5px solid #f0f0f0", cursor: isLast ? "pointer" : "default", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 500 }}>{s.title}</div>
+                  <div style={{ fontSize: 12, color: "#888", marginTop: 2 }}>{s.date} · {s.actual_duration} min</div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: s.completion_pct >= 90 ? "#166534" : s.completion_pct >= 70 ? "#854d0e" : "#dc2626" }}>{s.completion_pct}%</div>
+                  <div style={{ fontSize: 11, color: "#aaa" }}>{s.difficulty_kg > 0 ? s.difficulty_kg + " kg" : "BW"}</div>
+                </div>
+                {isLast && <span style={{ fontSize: 12, color: "#aaa", marginLeft: 8 }}>›</span>}
+              </div>
+            );
+          })}
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+// ── CALENDAR ──────────────────────────────────────────────────
+function dayCellBg(iso, correction) {
+  var burn = BURN_LOGS[iso];
+  if (!burn) return "#e8e8e6";
+  var summary = DAILY_MAP[iso];
+  if (!summary) return "#e8e8e6";
+  var corrected = Math.round(burn * correction);
+  var balance = (summary.calories || 0) - corrected;
+  if (balance <= -300) return "#166534";
+  if (balance <= 0)    return "#bbf7d0";
+  if (balance <= 300)  return "#fde68a";
+  return "#fca5a5";
+}
+
+function CalendarTab() {
+  var [viewDate, setViewDate] = useState(new Date("2026-04-08"));
+  var [calView, setCalView] = useState("daily");
+  var [selectedISO, setSelectedISO] = useState(null);
+  var [selectedWeek, setSelectedWeek] = useState(null);
+  var year = viewDate.getFullYear(), month = viewDate.getMonth();
+  var daysInMonth = new Date(year, month + 1, 0).getDate();
+  var firstDay = (new Date(year, month, 1).getDay() + 6) % 7;
+  var correction = CONFIG.training.pixelWatchCorrection;
+  var today = todayISO();
+
+  function getWeeksInMonth() {
+    var weeks = [];
+    for (var d = 1; d <= daysInMonth; d++) {
+      var iso = year + "-" + String(month + 1).padStart(2, "0") + "-" + String(d).padStart(2, "0");
+      var wk = getWeekKey(iso);
+      if (!weeks.find(function(w) { return w.key === wk; })) {
+        var start = new Date(getWeekStart(iso) + "T12:00:00");
+        var end = new Date(start); end.setDate(start.getDate() + 6);
+        weeks.push({ key: wk, label: start.toLocaleDateString("en", { month: "short", day: "numeric" }) + " – " + end.toLocaleDateString("en", { month: "short", day: "numeric" }) });
+      }
+    }
+    return weeks;
+  }
+
+  function getPrevWeekKey(wk) {
+    var parts = wk.split("_W"); var yr = parseInt(parts[0]); var wn = parseInt(parts[1]);
+    if (wn === 1) return (yr - 1) + "_W52";
+    return yr + "_W" + String(wn - 1).padStart(2, "0");
+  }
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+        <button onClick={function() { setViewDate(new Date(year, month - 1, 1)); setSelectedISO(null); setSelectedWeek(null); }} style={{ background: "none", border: "0.5px solid #ddd", borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontSize: 14 }}>{"<"}</button>
+        <span style={{ fontWeight: 500, fontSize: 14 }}>{viewDate.toLocaleDateString("en", { month: "long", year: "numeric" })}</span>
+        <button onClick={function() { setViewDate(new Date(year, month + 1, 1)); setSelectedISO(null); setSelectedWeek(null); }} style={{ background: "none", border: "0.5px solid #ddd", borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontSize: 14 }}>{">"}</button>
+      </div>
+      <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+        {[["daily","Daily"],["weekly","Weekly"]].map(function(item) { return <button key={item[0]} onClick={function() { setCalView(item[0]); setSelectedISO(null); setSelectedWeek(null); }} style={{ flex: 1, padding: "8px 0", borderRadius: 10, border: "0.5px solid #ccc", cursor: "pointer", fontWeight: 500, fontSize: 13, background: calView === item[0] ? "#1a1a1a" : "#fff", color: calView === item[0] ? "#fff" : "#666" }}>{item[1]}</button>; })}
+      </div>
+      {calView === "daily" && (
+        <div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4, marginBottom: 8 }}>{["M","T","W","T","F","S","S"].map(function(d, i) { return <div key={i} style={{ textAlign: "center", fontSize: 11, color: "#aaa", fontWeight: 500 }}>{d}</div>; })}</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4 }}>
+            {Array.from({ length: firstDay }, function(_, i) { return <div key={"b" + i} />; })}
+            {Array.from({ length: daysInMonth }, function(_, i) {
+              var day = i + 1;
+              var iso = year + "-" + String(month + 1).padStart(2, "0") + "-" + String(day).padStart(2, "0");
+              var isToday = iso === today, isSelected = iso === selectedISO;
+              var hasSession = ALL_SESSIONS.some(function(s) { return s.date === iso; });
+              var hasActivity = ACTIVITIES.some(function(a) { return a.date === iso; });
+              var summary = DAILY_MAP[iso];
+              var bg = dayCellBg(iso, correction);
+              var dots = [];
+              if (hasSession || hasActivity) dots.push({ color: "#2d7a4f", key: "g" });
+              if (summary) {
+                if ((summary.protein || 0) < (CONFIG.nutrition.protein - 20)) dots.push({ color: "#3b82f6", key: "b" });
+                if ((summary.fat || 0) > (CONFIG.nutrition.fatTraining + 15)) dots.push({ color: "#f97316", key: "o" });
+                if ((summary.carbs || 0) > (CONFIG.nutrition.carbsTraining + 30)) dots.push({ color: "#a855f7", key: "p" });
+              }
+              return (
+                <div key={day} onClick={function() { setSelectedISO(isSelected ? null : iso); }}
+                  style={{ background: bg, borderRadius: 8, minHeight: 44, border: isSelected ? "2px solid #1a1a1a" : isToday ? "2px solid #555" : "0.5px solid #d0d0ce", cursor: "pointer", overflow: "hidden", display: "flex", flexDirection: "column" }}>
+                  <div style={{ padding: "5px 3px 3px", flex: 1 }}>
+                    <div style={{ fontSize: 12, fontWeight: isToday ? 700 : 400, textAlign: "center", color: bg === "#166534" ? "#fff" : "#1a1a1a" }}>{day}</div>
+                  </div>
+                  {dots.length > 0 && <div style={{ background: "#fff", padding: "2px 3px", display: "flex", justifyContent: "center", gap: 2 }}>
+                    {dots.map(function(dot) { return <div key={dot.key} style={{ width: 6, height: 6, borderRadius: "50%", background: dot.color }} />; })}
+                  </div>}
+                </div>
+              );
+            })}
+          </div>
+          {selectedISO && (function() {
+            var summary = DAILY_MAP[selectedISO];
+            var session = ALL_SESSIONS.find(function(s) { return s.date === selectedISO; });
+            var activity = ACTIVITIES.find(function(a) { return a.date === selectedISO; });
+            var burn = BURN_LOGS[selectedISO];
+            var correctedBurn = burn ? Math.round(burn * correction) : null;
+            var isTraining = !!session;
+            var calGoal = isTraining ? CONFIG.nutrition.caloriesTraining : CONFIG.nutrition.caloriesRest;
+            var label = new Date(selectedISO + "T12:00:00").toLocaleDateString("en", { weekday: "long", month: "long", day: "numeric" });
+            return (
+              <div style={{ marginTop: 14, background: "#fff", border: "0.5px solid #ddd", borderRadius: 12, overflow: "hidden" }}>
+                <div style={{ background: "#1a1a1a", color: "#fff", padding: "10px 14px", fontSize: 13, fontWeight: 500, display: "flex", justifyContent: "space-between" }}><span>{label}</span><span style={{ fontSize: 11, color: "#aaa" }}>{isTraining ? "Training day" : "Rest day"}</span></div>
+                <div style={{ padding: 14 }}>
+                  {session && <div style={{ background: "#f5f5f3", borderRadius: 8, padding: "10px 12px", marginBottom: 14 }}><div style={{ fontSize: 12, fontWeight: 500, marginBottom: 6 }}>{session.title}</div><div style={{ display: "flex", gap: 10 }}>{[["difficulty", session.difficulty_kg + " kg"], ["completion", session.completion_pct + "%"], ["duration", session.actual_duration + " min"]].map(function(item) { return <div key={item[0]} style={{ flex: 1, textAlign: "center" }}><div style={{ fontSize: 15, fontWeight: 500 }}>{item[1]}</div><div style={{ fontSize: 10, color: "#aaa" }}>{item[0]}</div></div>; })}</div></div>}
+                  {activity && <div style={{ background: "#f5f5f3", borderRadius: 8, padding: "10px 12px", marginBottom: 14 }}><div style={{ fontSize: 12, fontWeight: 500, marginBottom: 6 }}>{activity.type}</div><div style={{ display: "flex", gap: 10 }}>{[["duration", activity.duration + " min"], ["burned", activity.calories_burned + " kcal"], ["peak HR", activity.peak_hr + " bpm"]].map(function(item) { return <div key={item[0]} style={{ flex: 1, textAlign: "center" }}><div style={{ fontSize: 15, fontWeight: 500 }}>{item[1]}</div><div style={{ fontSize: 10, color: "#aaa" }}>{item[0]}</div></div>; })}</div>{activity.notes && <div style={{ fontSize: 11, color: "#888", marginTop: 6, fontStyle: "italic" }}>{activity.notes}</div>}</div>}
+                  {summary && <div style={{ marginBottom: 14 }}>
+                    <MacroBar label="Calories" value={summary.calories || 0} goal={calGoal} color="#a5f3fc" />
+                    <MacroBar label="Protein" value={summary.protein || 0} goal={CONFIG.nutrition.protein} color="#86efac" />
+                    <MacroBar label="Carbs" value={summary.carbs || 0} goal={isTraining ? CONFIG.nutrition.carbsTraining : CONFIG.nutrition.carbsRest} color="#fde68a" />
+                    <MacroBar label="Fat" value={summary.fat || 0} goal={isTraining ? CONFIG.nutrition.fatTraining : CONFIG.nutrition.fatRest} color="#fca5a5" />
+                  </div>}
+                  {burn && <div style={{ fontSize: 12, color: "#888" }}>Calories burned: <strong>{correctedBurn} kcal</strong> (corrected)</div>}
+                </div>
+              </div>
+            );
+          })()}
+          <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {[["#166534","Deficit 300+"],["#bbf7d0","Deficit/neutral"],["#fde68a","Surplus <300"],["#fca5a5","Surplus 300+"],["#e8e8e6","No data"]].map(function(item) { return <div key={item[1]} style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 10, color: "#666" }}><div style={{ width: 10, height: 10, borderRadius: 2, background: item[0], border: "0.5px solid #ddd" }} />{item[1]}</div>; })}
+          </div>
+          <div style={{ marginTop: 6, display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {[["#2d7a4f","Session/activity"],["#3b82f6","Low protein"],["#f97316","High fat"],["#a855f7","High carbs"]].map(function(item) { return <div key={item[1]} style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 10, color: "#666" }}><div style={{ width: 6, height: 6, borderRadius: "50%", background: item[0] }} />{item[1]}</div>; })}
+          </div>
+        </div>
+      )}
+      {calView === "weekly" && (
+        <div>
+          {getWeeksInMonth().map(function(w) {
+            var omronData = OMRON_LOGS[w.key] || null;
+            var prevKey = getPrevWeekKey(w.key);
+            var prevOmron = OMRON_LOGS[prevKey] || null;
+            var weeklyRow = WEEKLY_SUMMARY[w.key] || null;
+            function delta(curr, prev, unit, invert) {
+              if (!curr || !prev) return null;
+              var d = Math.round((curr - prev) * 10) / 10;
+              var positive = invert ? d < 0 : d > 0;
+              var color = d === 0 ? "#888" : positive ? "#dc2626" : "#166534";
+              return <span style={{ fontSize: 11, color: color, marginLeft: 4 }}>{d > 0 ? "+" : ""}{d}{unit}</span>;
+            }
+            return (
+              <div key={w.key}>
+                <div onClick={function() { setSelectedWeek(selectedWeek === w.key ? null : w.key); }} style={{ background: "#fff", border: "0.5px solid #ddd", borderRadius: selectedWeek === w.key ? "10px 10px 0 0" : 10, padding: "12px 14px", marginBottom: selectedWeek === w.key ? 0 : 8, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontSize: 13, fontWeight: 500 }}>{w.label}</span>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    {omronData && <span style={{ fontSize: 11, color: "#2d7a4f", fontWeight: 500 }}>{omronData.bodyweight} kg · {omronData.body_fat}% BF</span>}
+                    <span style={{ fontSize: 14, color: "#aaa" }}>{selectedWeek === w.key ? "^" : "v"}</span>
+                  </div>
+                </div>
+                {selectedWeek === w.key && (
+                  <div style={{ background: "#fff", border: "0.5px solid #ddd", borderTop: "none", borderRadius: "0 0 10px 10px", padding: 14, marginBottom: 8 }}>
+                    {weeklyRow && <div style={{ marginBottom: 14 }}>
+                      <div style={{ fontSize: 11, color: "#999", fontWeight: 500, marginBottom: 10 }}>WEEK RECAP</div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                        {[["Sessions", weeklyRow.sessions], ["Total volume", weeklyRow.total_difficulty + " kg"], ["Avg energy balance", weeklyRow.avg_energy_balance + " kcal"], ["Eat-out", weeklyRow.eat_out_meals + " meals"]].map(function(item) { return <div key={item[0]} style={{ background: "#f5f5f3", borderRadius: 8, padding: "8px 10px", textAlign: "center" }}><div style={{ fontSize: 15, fontWeight: 500 }}>{item[1]}</div><div style={{ fontSize: 10, color: "#aaa" }}>{item[0]}</div></div>; })}
+                      </div>
+                    </div>}
+                    {omronData && <div>
+                      <div style={{ fontSize: 11, color: "#999", fontWeight: 500, marginBottom: 10 }}>OMRON READING</div>
+                      <div style={{ display: "flex", gap: 10 }}>
+                        <div style={{ flex: 1, background: "#f5f5f3", borderRadius: 8, padding: "8px 10px", textAlign: "center" }}>
+                          <div style={{ fontSize: 16, fontWeight: 500 }}>{omronData.bodyweight} kg{prevOmron ? delta(omronData.bodyweight, prevOmron.bodyweight, "kg", true) : null}</div>
+                          <div style={{ fontSize: 10, color: "#aaa" }}>Bodyweight</div>
+                        </div>
+                        <div style={{ flex: 1, background: "#f5f5f3", borderRadius: 8, padding: "8px 10px", textAlign: "center" }}>
+                          <div style={{ fontSize: 16, fontWeight: 500 }}>{omronData.body_fat}%{prevOmron ? delta(omronData.body_fat, prevOmron.body_fat, "%", true) : null}</div>
+                          <div style={{ fontSize: 10, color: "#aaa" }}>Body Fat</div>
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
+                        {[["Lean mass", omronData.lean_mass + " kg"], ["Fat mass", omronData.fat_mass + " kg"]].map(function(item) { return <div key={item[0]} style={{ flex: 1, background: "#f5f5f3", borderRadius: 8, padding: "8px 10px", textAlign: "center" }}><div style={{ fontSize: 15, fontWeight: 500 }}>{item[1]}</div><div style={{ fontSize: 10, color: "#aaa" }}>{item[0]}</div></div>; })}
+                      </div>
+                    </div>}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── ROOT ──────────────────────────────────────────────────────
+function App() {
+  var [tab, setTab] = useState("dashboard");
+  return (
+    <div style={{ fontFamily: "system-ui,sans-serif", background: "#f5f5f3", color: "#1a1a1a", minHeight: "100vh", maxWidth: 480, margin: "0 auto", padding: 12 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+        <div style={{ fontSize: 20, fontWeight: 500 }}>Heavy Hybrid</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 11, color: "#aaa" }}>{CONFIG.athlete.weight} kg · {CONFIG.athlete.bf}% BF</span>
+          <div style={{ background: "#f0fdf4", border: "0.5px solid #bbf7d0", borderRadius: 8, padding: "4px 10px", fontSize: 11, color: "#166534", fontWeight: 500 }}>demo</div>
+        </div>
+      </div>
+      <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
+        {[["dashboard","Dashboard"],["nutrition","Nutrition"],["training","Training"],["calendar","Calendar"]].map(function(item) { return <button key={item[0]} onClick={function() { setTab(item[0]); }} style={{ flex: 1, padding: "9px 0", borderRadius: 20, border: "0.5px solid " + (tab === item[0] ? "#1a1a1a" : "#ddd"), cursor: "pointer", fontWeight: 500, fontSize: 13, background: tab === item[0] ? "#1a1a1a" : "#fff", color: tab === item[0] ? "#fff" : "#888" }}>{item[1]}</button>; })}
+      </div>
+      <div style={{ background: "#fef9c3", border: "0.5px solid #fde68a", borderRadius: 10, padding: "8px 12px", marginBottom: 14, fontSize: 12, color: "#854d0e" }}>
+        This is a read-only demo. Data shown is a realistic snapshot — nothing here is editable.
+      </div>
+      {tab === "dashboard" && <Dashboard onTabChange={setTab} />}
+      {tab === "nutrition" && <NutritionTab />}
+      {tab === "training" && <TrainingTab />}
+      {tab === "calendar" && <CalendarTab />}
+    </div>
+  );
+}
+
+ReactDOM.render(<App />, document.getElementById("root"));
+</script>
+</body>
+</html>
