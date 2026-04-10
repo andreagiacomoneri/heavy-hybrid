@@ -522,7 +522,6 @@ var totals = todayLogs.reduce(function(a, e) { return { cal: a.cal + (e.calories
     onAddMeal(Object.assign({ meal_type: meal, is_eat_out: isEatOut, restaurant_type: isEatOut ? restaurantType : "", description: description }, data));
     setIsEatOut(false); setRestaurantType(""); setDescription("");
   }
-  function saveMeal(data) { try { var r = localStorage.getItem("hh_saved_meals"); var ex = r ? JSON.parse(r) : []; ex.push(Object.assign({ id: Date.now() }, data)); localStorage.setItem("hh_saved_meals", JSON.stringify(ex)); } catch(e) {} }
   return (
     <div>
       <Card>
@@ -567,7 +566,6 @@ var totals = todayLogs.reduce(function(a, e) { return { cal: a.cal + (e.calories
               <div style={{ fontSize: 12, color: "#6b7280", fontStyle: "italic", marginBottom: 12 }}>{status.data.note}</div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 <button onClick={function() { setStatus(null); }} style={{ flex: 1, padding: "8px 0", background: "#e5e7eb", color: "#374151", border: "none", borderRadius: 8, fontSize: 13, cursor: "pointer" }}>Cancel</button>
-                <button onClick={function() { saveMeal(status.data); }} style={{ flex: 1, padding: "8px 0", background: "#dbeafe", color: "#1e40af", border: "none", borderRadius: 8, fontSize: 13, cursor: "pointer" }}>Save meal</button>
                 <button onClick={function() { addEntry(status.data); setStatus(null); }} style={{ flex: 2, padding: "8px 0", background: "#2d7a4f", color: "#fff", border: "none", borderRadius: 8, fontWeight: 500, cursor: "pointer" }}>Add to log</button>
               </div>
             </div>
