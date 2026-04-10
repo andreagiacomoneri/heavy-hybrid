@@ -374,7 +374,9 @@ function TrainingTab({ config, onSessionSaved, lastSessionSets }) {
   function calcWorkload() {
     if (!session) return { expWeighted: 0, actWeighted: 0, expBW: 0, actBW: 0, pct: 0 };
     var eW = 0, aW = 0, eBW = 0, aBW = 0;
-    session.blocks.forEach(function(b) { b.exercises.forEach(function(ex) { for (var s = 0; s < ex.sets; s++) { var lg = (logs[ex.id] && logs[ex.id][s]) || {}; if (ex.kg > 0) { eW += ex.reps * ex.kg; aW += (parseFloat(lg.reps) || 0) * (parseFloat(lg.weight) || 0); } else { eBW += ex.reps; aBW += parseFloat(lg.reps) || 0; } } }); });
+    session.blocks.forEach(function(b) { b.exercises.forEach(function(ex) { for (var s = 0; s < ex.sets; s++) { var lg = (logs[ex.id] && logs[ex.id][s]) || {}; if (ex.kg > 0) { eW += ex.reps * ex.kg; aW += (parseFloat(lg.reps) || ex.reps) * (parseFloat(lg.weight) || ex.kg); }
+ else { eBW += ex.reps; aBW += parseFloat(lg.reps) || ex.reps; }
+ } }); });
     var pct = eW > 0 ? Math.round((aW / eW) * 100) : eBW > 0 ? Math.round((aBW / eBW) * 100) : 0;
     return { expWeighted: Math.round(eW), actWeighted: Math.round(aW), expBW: Math.round(eBW), actBW: Math.round(aBW), pct: pct };
   }
