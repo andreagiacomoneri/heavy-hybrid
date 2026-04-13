@@ -146,11 +146,24 @@ async function handleSyncSheet(req, res) {
       supabaseSelect("weekly_summary", [], "week_start.asc"),
     ]);
 
-    // Get last session for Last Session Detail tab
+// Get last session for Last Session Detail tab
     const lastSession = trainingSessions.length ? trainingSessions[trainingSessions.length - 1] : null;
     const lastSessionSets = lastSession
       ? sessionSets.filter(s => s.session_id === lastSession.id)
       : [];
+
+    // Send session CSV to Telegram
+    if (lastSession && lastSessionSets.length) {
+      const header = "Date,Title,Block,Exercise,Set,Target Reps,Target Kg,Actual Reps,Actual Kg,RIR Score,RIR Label,Peak HR";
+      const rows = lastSessionSets.map(r =>
+        [lastSession.date, lastSession.title, r.block, r.exercise, r.set_number, r.target_reps, r.target_kg, r.actual_reps, r.actual_kg, r.rir_score, r.rir_label, r.peak_hr || ""]
+        .map(v => `"${String(v ?? "").replace(/"/g, '""')}"`)
+        .join(",")
+      ).join("\n");
+      const csv = `${header}\n${rows}`;
+      const summary = `*${lastSession.title}* — ${lastSession.date}\nDifficulty: ${lastSession.difficulty_kg} kg · Completion: ${lastSession.completion_pct}%\n\n\`\`\`\n${csv}\n\`\`\``;
+      await sendTelegram(summary);
+    }
 
     const payload = {
       secret: SHEETS_SECRET,
