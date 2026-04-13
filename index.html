@@ -193,7 +193,7 @@ function calcWeeklySummary(weekSessions, weeklyRow) {
 }
 
 // ── DASHBOARD ─────────────────────────────────────────────────
-function Dashboard({ config, todayLogs, calGoal, carbGoal, fatGoal, isTrainingDay, weekSessions, weeklyRow, onTabChange }) {
+function Dashboard({ config, todayLogs, calGoal, carbGoal, fatGoal, isTrainingDay, weekSessions, weeklyRow, onTabChange, weeklySummaryLogs, activities }) {
   var totals = todayLogs.reduce(function(a, e) { return { cal: a.cal + (e.calories||e.cal||0), protein: a.protein + (e.protein||0), carbs: a.carbs + (e.carbs||0), fat: a.fat + (e.fat||0) }; }, { cal: 0, protein: 0, carbs: 0, fat: 0 });
   var remaining = calGoal - totals.cal;
   var last = weekSessions.length > 0 ? weekSessions[weekSessions.length - 1] : null;
@@ -214,17 +214,49 @@ function Dashboard({ config, todayLogs, calGoal, carbGoal, fatGoal, isTrainingDa
         </div>
       </Card>
       <Card>
-        <CardHdr left="This week" />
+        <CardHdr left="This week" right={<span style={{ fontSize: 11, color: "#aaa" }}>{weekly.daysLogged || 0} / 7 days logged</span>} />
         <div style={{ padding: 14 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 12 }}>
-            {[["Sessions", weekly.sessions], ["Meals", weekly.totalMeals || todayLogs.length], ["Eat-out", weekly.eatOutMeals]].map(function(item) { return <div key={item[0]} style={{ background: "#f5f5f3", borderRadius: 8, padding: "8px 10px", textAlign: "center" }}><div style={{ fontSize: 20, fontWeight: 500 }}>{item[1]}</div><div style={{ fontSize: 10, color: "#aaa" }}>{item[0]}</div></div>; })}
-          </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
-            {[["Avg calories", weekly.avgCal ? weekly.avgCal + " kcal" : "-"], ["Avg protein", weekly.avgProtein ? weekly.avgProtein + "g" : "-"], ["Protein target", weekly.proteinCompliance !== null && weekly.proteinCompliance !== undefined ? weekly.proteinCompliance + "%" : "-"], ["Days logged", (weekly.daysLogged || "-") + " / 7"]].map(function(item) { return <div key={item[0]} style={{ background: "#f5f5f3", borderRadius: 8, padding: "8px 10px", textAlign: "center" }}><div style={{ fontSize: 15, fontWeight: 500 }}>{item[1]}</div><div style={{ fontSize: 10, color: "#aaa" }}>{item[0]}</div></div>; })}
+            {(function() {
+              var prevWkKey = (function() {
+                var parts = getWeekKey(todayISO()).split("_W");
+                var yr = parseInt(parts[0]), wn = parseInt(parts[1]);
+                return wn === 1 ? (yr - 1) + "_W52" : yr + "_W" + String(wn - 1).padStart(2, "0");
+              })();
+              var prevWeekly = weeklyRow ? null : null; // weeklyRow is current, we need prev from weeklySummaryLogs
+              var eatOutPct = weekly.totalMeals > 0 ? Math.round((weekly.eatOutMeals / weekly.totalMeals) * 100) : null;
+              var prevWr = weeklySummaryLogs[prevWkKey];
+              var prevEatOutPct = prevWr && prevWr.total_meals > 0 ? Math.round((prevWr.eat_out_meals / prevWr.total_meals) * 100) : null;
+              var eatOutColor = eatOutPct === null ? "#aaa" : prevEatOutPct === null ? "#1a1a1a" : eatOutPct <= prevEatOutPct ? "#166534" : "#dc2626";
+              var activityCount = activities.filter(function(a) { var wkStart = getWeekStart(todayISO()); var wkEnd = (function() { var d = new Date(wkStart + "T12:00:00"); d.setDate(d.getDate() + 6); return d.toISOString().slice(0, 10); })(); return a.date >= wkStart && a.date <= wkEnd; }).length;
+              var totalActivities = (weekly.sessions || 0) + activityCount;
+              var proteinDaysHit = weekly.proteinCompliance !== null && weekly.daysLogged ? Math.round(weekly.proteinCompliance / 100 * weekly.daysLogged) : null;
+              var balanceColor = !weekly.avgBalance ? "#aaa" : weekly.avgBalance < -600 ? "#dc2626" : weekly.avgBalance < 0 ? "#166534" : "#dc2626";
+              return [
+                { label: "Avg energy balance", value: weekly.avgBalance ? weekly.avgBalance + " kcal" : "-", color: balanceColor },
+                { label: "Sessions & activities", value: totalActivities, color: "#1a1a1a" },
+                { label: "Eat-out meals", value: eatOutPct !== null ? eatOutPct + "%" : "-", color: eatOutColor },
+                { label: "Avg protein", value: weekly.avgProtein ? weekly.avgProtein + "g" : "-", color: "#1a1a1a" },
+                { label: "Protein goal hit", value: proteinDaysHit !== null ? proteinDaysHit + " / " + weekly.daysLogged + " days" : "-", color: "#1a1a1a" },
+              ].map(function(item) {
+                return <div key={item.label} style={{ background: "#f5f5f3", borderRadius: 8, padding: "8px 10px", textAlign: "center" }}>
+                  <div style={{ fontSize: 15, fontWeight: 500, color: item.color }}>{item.value}</div>
+                  <div style={{ fontSize: 10, color: "#aaa" }}>{item.label}</div>
+                </div>;
+              });
+            })()}
           </div>
           {weekly.daysLogged >= 3
             ? <div><ActionBtn secondary onClick={handleWeeklyReport} disabled={reportLoading}>{reportLoading ? "Generating..." : "Generate weekly report"}</ActionBtn>{reportErr && <div style={{ fontSize: 12, color: "#dc2626", marginTop: 6 }}>{reportErr}</div>}{weeklyReport && <div style={{ fontSize: 13, color: "#333", background: "#f9f9f7", borderRadius: 8, padding: 12, marginTop: 8, lineHeight: 1.6 }}>{weeklyReport}</div>}</div>
             : <div style={{ fontSize: 11, color: "#aaa", textAlign: "center" }}>Log at least 3 days to generate weekly report</div>}
+        </div>
+      </Card>
+      <Card>
+        <CardHdr left="Last session" />
+        <div style={{ padding: 14 }}>
+          {last
+            ? <div><div style={{ fontSize: 14, fontWeight: 500, marginBottom: 4 }}>{last.title}</div><div style={{ fontSize: 12, color: "#888", marginBottom: 10 }}>{last.date}{last.actual_duration ? " · " + last.actual_duration + " min" : ""}</div><div style={{ display: "flex", gap: 12 }}>{[["difficulty kg", last.difficulty_kg || "-"], ["completion", (last.completion_pct || "-") + "%"]].map(function(item) { return <div key={item[0]} style={{ flex: 1, background: "#f5f5f3", borderRadius: 8, padding: "8px 10px", textAlign: "center" }}><div style={{ fontSize: 18, fontWeight: 500 }}>{item[1]}</div><div style={{ fontSize: 10, color: "#aaa" }}>{item[0]}</div></div>; })}</div></div>
+            : <div style={{ textAlign: "center", padding: "20px 0" }}><div style={{ fontSize: 13, color: "#aaa", marginBottom: 12 }}>No sessions this week.</div><ActionBtn secondary onClick={function() { onTabChange("training"); }}>Go to Training</ActionBtn></div>}
         </div>
       </Card>
       <Card>
@@ -1184,8 +1216,7 @@ async function upsertDailySummaryForDate(date) {
       <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
         {[["dashboard","Dashboard"],["nutrition","Nutrition"],["training","Training"],["calendar","Calendar"]].map(function(item) { return <button key={item[0]} onClick={function() { setTab(item[0]); }} style={{ flex: 1, padding: "9px 0", borderRadius: 20, border: "0.5px solid " + (tab === item[0] ? "#1a1a1a" : "#ddd"), cursor: "pointer", fontWeight: 500, fontSize: 13, background: tab === item[0] ? "#1a1a1a" : "#fff", color: tab === item[0] ? "#fff" : "#888" }}>{item[1]}</button>; })}
       </div>
-      {tab === "dashboard" && <Dashboard config={config} todayLogs={todayLogs} calGoal={calGoal} carbGoal={carbGoal} fatGoal={fatGoal} isTrainingDay={isTrainingDay} weekSessions={weekSessions} weeklyRow={weeklyRow} onTabChange={setTab} />}
-      {tab === "nutrition" && <NutritionTab config={config} todayLogs={todayLogs} onAddMeal={handleAddMeal} onDeleteMeal={handleDeleteMeal} isTrainingDay={isTrainingDay} calOverride={calOverrideToday} />}
+      {tab === "dashboard" && <Dashboard config={config} todayLogs={todayLogs} calGoal={calGoal} carbGoal={carbGoal} fatGoal={fatGoal} isTrainingDay={isTrainingDay} weekSessions={weekSessions} weeklyRow={weeklyRow} onTabChange={setTab} weeklySummaryLogs={weeklySummaryLogs} activities={activities} />}      {tab === "nutrition" && <NutritionTab config={config} todayLogs={todayLogs} onAddMeal={handleAddMeal} onDeleteMeal={handleDeleteMeal} isTrainingDay={isTrainingDay} calOverride={calOverrideToday} />}
       {tab === "training" && <TrainingTab config={config} onSessionSaved={handleSessionSaved} lastSessionSets={lastSessionSets} />}
       {tab === "calendar" && <CalendarTab config={config} burnLogs={burnLogs} onSaveBurn={handleSaveBurn} weekSessions={weekSessions} allSessions={allSessions} activities={activities} omronLogs={omronLogs} onSaveOmron={handleSaveOmron} dailySummaryLogs={dailySummaryLogs} weeklySummaryLogs={weeklySummaryLogs} />}
       {showSettings && <SettingsPanel config={config} onSave={handleConfigSave} onClose={function() { setShowSettings(false); }} onPatch={handlePatch} />}
