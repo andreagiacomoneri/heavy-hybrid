@@ -634,7 +634,7 @@ function DayDetail({ iso, burnLogs, onSaveBurn, weekSessions, activities, dailyS
           <div style={{ background: "#f5f5f3", borderRadius: 8, padding: "10px 12px", marginBottom: 14 }}>
             <div style={{ fontSize: 12, fontWeight: 500, marginBottom: 6 }}>{activity.type}</div>
             <div style={{ display: "flex", gap: 10 }}>
-              {[["duration", (activity.duration || "-") + " min"], ["burned", (activity.calories_burned || "-") + " kcal"], ["peak HR", (activity.peak_hr || "-") + " bpm"]].map(function(item) {
+              {[["duration", (activity.duration || "-") + " min"], ["burned", (activity.calories_burned || "-") + " kcal"], ["avg HR", (activity.avg_hr || "-") + " bpm"]].map(function(item) {
                 return <div key={item[0]} style={{ flex: 1, textAlign: "center" }}><div style={{ fontSize: 15, fontWeight: 500 }}>{item[1]}</div><div style={{ fontSize: 10, color: "#aaa" }}>{item[0]}</div></div>;
               })}
             </div>
