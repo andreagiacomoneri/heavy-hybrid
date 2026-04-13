@@ -162,7 +162,7 @@ async function handleSyncSheet(req, res) {
       ).join("\n");
       const csv = `${header}\n${rows}`;
       const summary = `*${lastSession.title}* — ${lastSession.date}\nDifficulty: ${lastSession.difficulty_kg} kg · Completion: ${lastSession.completion_pct}%\n\n\`\`\`\n${csv}\n\`\`\``;
-      await sendTelegram(summary);
+      sendTelegram(summary).catch(err => console.error("Telegram send error:", err));
     }
 
     const payload = {
