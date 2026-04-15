@@ -539,8 +539,13 @@ function NutritionTab({ config, todayLogs, onAddMeal, onDeleteMeal, isTrainingDa
   var carbGoal = isTrainingDay ? config.nutrition.carbsTraining : config.nutrition.carbsRest;
   var fatGoal = isTrainingDay ? config.nutrition.fatTraining : config.nutrition.fatRest;
 var totals = todayLogs.reduce(function(a, e) { return { cal: a.cal + (e.calories||e.cal||0), protein: a.protein + (e.protein||0), carbs: a.carbs + (e.carbs||0), fat: a.fat + (e.fat||0) }; }, { cal: 0, protein: 0, carbs: 0, fat: 0 });  var remaining = calGoal - totals.cal;
-  var eatOutCount = todayLogs.filter(function(e) { return e.is_eat_out; }).length;
-  var homeCount = todayLogs.filter(function(e) { return !e.is_eat_out; }).length;
+var MAIN_MEALS = ["Breakfast", "Lunch", "Dinner"];
+  var eatOutCount = MAIN_MEALS.filter(function(m) {
+    return todayLogs.some(function(e) { return e.is_eat_out && e.meal_type === m; });
+  }).length;
+  var homeCount = MAIN_MEALS.filter(function(m) {
+    return todayLogs.some(function(e) { return !e.is_eat_out && e.meal_type === m; });
+  }).length;
   function addEntry(data) {
     onAddMeal(Object.assign({ meal_type: meal, is_eat_out: isEatOut, restaurant_type: isEatOut ? restaurantType : "", description: description }, data));
     setIsEatOut(false); setRestaurantType(""); setDescription("");
@@ -1095,7 +1100,10 @@ async function upsertDailySummaryForDate(date) {
       } catch(e) {}
     }
     var totals = logs.reduce(function(a, e) { return { cal: a.cal + (e.calories || e.cal || 0), protein: a.protein + (e.protein||0), carbs: a.carbs + (e.carbs||0), fat: a.fat + (e.fat||0) }; }, { cal: 0, protein: 0, carbs: 0, fat: 0 });
-    var eatOut = logs.filter(function(e) { return e.is_eat_out; }).length;
+    var MAIN_MEALS = ["Breakfast", "Lunch", "Dinner"];
+    var eatOut = MAIN_MEALS.filter(function(m) {
+      return logs.some(function(e) { return e.is_eat_out && (e.meal_type === m || e.meal_type === m); });
+    }).length;
     var burn = burnLogs[td];
     var corrected = burn ? Math.round(burn * config.training.pixelWatchCorrection) : null;
     var row = {
