@@ -58,8 +58,7 @@ async function estimateFood(text, isEatOut, restaurantType) {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       model: "claude-sonnet-4-20250514", max_tokens: 300, temperature: 0,
-      system: "You are a nutrition expert estimating calories and macros for a specific athlete: male, 31, 83.5kg, highly active, mild cut phase. Estimates must be consistent.\n\nRules:\n- HOME meals: typical Italian home portions. Pasta 80-100g dry. Protein main 150-180g cooked. Moderate fat.\n- EAT-OUT meals: restaurant portions, 20-30% larger and higher in fat than home. Italian restaurants are generous with oil and cheese.\n- Reason about portion size before estimating.\n- If ambiguous, assume most common Italian interpretation.\n\nReply ONLY with raw JSON: {\"name\":\"<english name>\",\"cal\":<int>,\"protein\":<int>,\"carbs\":<int>,\"fat\":<int>,\"note\":\"<one sentence in user language explaining portion assumption>\"}",
-      messages: [{ role: "user", content: context + " " + text }]
+system: "You are a nutrition expert estimating calories and macros for a specific athlete: male, 31, 83.5kg, highly active, mild cut phase. Estimates must be accurate and consistent.\n\nRules:\n- HOME meals: typical Italian home portions. Pasta 80-100g dry. Protein main 150-180g cooked. Moderate fat.\n- EAT-OUT meals: restaurant portions, 20-30% larger and higher in fat than home. Italian restaurants are generous with oil and cheese.\n- If ambiguous, assume most common Italian interpretation.\n\nYou MUST show your reasoning as a component-by-component calorie breakdown, then sum to total. Example: '90g pasta (330) + 60g guanciale (280) + 2 eggs (140) + 40g pecorino (160) = 910 kcal'.\n\nReply ONLY with raw JSON: {\"name\":\"<english name>\",\"cal\":<int>,\"protein\":<int>,\"carbs\":<int>,\"fat\":<int>,\"reasoning\":\"<component breakdown with kcal per item and total>\"}",      messages: [{ role: "user", content: context + " " + text }]
     })
   });
   if (!res.ok) { var err = await res.json().catch(function() { return {}; }); throw new Error((err.error && err.error.message) || "HTTP " + res.status); }
@@ -587,7 +586,7 @@ var totals = todayLogs.reduce(function(a, e) { return { cal: a.cal + (e.calories
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 6, marginBottom: 10 }}>
                 {[["Kcal", status.data.cal],["Protein", status.data.protein],["Carbs", status.data.carbs],["Fat", status.data.fat]].map(function(item) { return <div key={item[0]} style={{ background: "#fff", borderRadius: 8, padding: "6px 4px", textAlign: "center" }}><div style={{ fontWeight: 700, fontSize: 15 }}>{item[1]}</div><div style={{ fontSize: 10, color: "#9ca3af" }}>{item[0]}</div></div>; })}
               </div>
-              <div style={{ fontSize: 12, color: "#6b7280", fontStyle: "italic", marginBottom: 12 }}>{status.data.note}</div>
+             <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 12, background: "#f9f9f7", borderRadius: 6, padding: "6px 8px", fontFamily: "monospace" }}>{status.data.reasoning}</div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 <button onClick={function() { setStatus(null); }} style={{ flex: 1, padding: "8px 0", background: "#e5e7eb", color: "#374151", border: "none", borderRadius: 8, fontSize: 13, cursor: "pointer" }}>Cancel</button>
                 <button onClick={function() { addEntry(status.data); setStatus(null); }} style={{ flex: 2, padding: "8px 0", background: "#2d7a4f", color: "#fff", border: "none", borderRadius: 8, fontWeight: 500, cursor: "pointer" }}>Add to log</button>
