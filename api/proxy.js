@@ -237,9 +237,21 @@ async function recalcWeeklySummary(date) {
     { column: "date", op: "gte", value: weekStart },
     { column: "date", op: "lte", value: weekEnd },
   ]);
-  const homeMeals  = allMeals.filter(m => !m.is_eat_out).length;
-  const eatOutMeals = allMeals.filter(m => m.is_eat_out).length;
-  const totalMeals = allMeals.length;
+const MAIN_MEALS = ["Breakfast", "Lunch", "Dinner"];
+  const mealDates = [...new Set(allMeals.map(m => m.date))];
+  const eatOutMeals = mealDates.reduce((count, date) => {
+    const dayMeals = allMeals.filter(m => m.date === date);
+    return count + MAIN_MEALS.filter(slot =>
+      dayMeals.some(m => m.is_eat_out && m.meal_type === slot)
+    ).length;
+  }, 0);
+  const homeMeals = mealDates.reduce((count, date) => {
+    const dayMeals = allMeals.filter(m => m.date === date);
+    return count + MAIN_MEALS.filter(slot =>
+      dayMeals.some(m => !m.is_eat_out && m.meal_type === slot)
+    ).length;
+  }, 0);
+  const totalMeals = eatOutMeals + homeMeals;
 
   const proteinHits = days.filter(d => d.protein >= d.protein_goal).length;
 
