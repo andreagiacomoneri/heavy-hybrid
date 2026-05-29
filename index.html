@@ -701,20 +701,20 @@ function DayDetail({ iso, burnLogs, onSaveBurn, weekSessions, activities, dailyS
         )}
         <div style={{ borderTop: "0.5px solid #eee", paddingTop: 14, marginBottom: 14 }}>
           <div style={{ fontSize: 11, color: "#999", fontWeight: 500, marginBottom: 10 }}>OMRON READING</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
-            <div>
-              <div style={{ fontSize: 10, color: "#aaa", fontWeight: 500, marginBottom: 4 }}>WEIGHT (KG)</div>
-              <Stepper value={weight} onChange={function(v) { setWeight(v); setOmronSaved(false); }} step={0.1} placeholder="kg" compact />
-            </div>
-            <div>
-              <div style={{ fontSize: 10, color: "#aaa", fontWeight: 500, marginBottom: 4 }}>BODY FAT %</div>
-              <Stepper value={bf} onChange={function(v) { setBf(v); setOmronSaved(false); }} step={0.1} placeholder="%" compact />
-            </div>
-          </div>
-          <div style={{ marginBottom: 10 }}>
-            <div style={{ fontSize: 10, color: "#aaa", fontWeight: 500, marginBottom: 4 }}>VISCERAL FAT (1–59)</div>
-            <Stepper value={visceralFat} onChange={function(v) { setVisceralFat(v); setOmronSaved(false); }} step={1} placeholder="1–59" />
-          </div>
+<div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 10 }}>
+  <div>
+    <div style={{ fontSize: 10, color: "#aaa", fontWeight: 500, marginBottom: 4 }}>WEIGHT (KG)</div>
+    <Stepper value={weight} onChange={function(v) { setWeight(v); setOmronSaved(false); }} step={0.1} placeholder="kg" />
+  </div>
+  <div>
+    <div style={{ fontSize: 10, color: "#aaa", fontWeight: 500, marginBottom: 4 }}>BODY FAT %</div>
+    <Stepper value={bf} onChange={function(v) { setBf(v); setOmronSaved(false); }} step={0.1} placeholder="%" />
+  </div>
+  <div>
+    <div style={{ fontSize: 10, color: "#aaa", fontWeight: 500, marginBottom: 4 }}>VISCERAL FAT (1–59)</div>
+    <Stepper value={visceralFat} onChange={function(v) { setVisceralFat(v); setOmronSaved(false); }} step={1} placeholder="1–59" />
+  </div>
+</div>
           {leanMass && fatMass && (
             <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
               {[["Lean mass", leanMass + " kg"], ["Fat mass", fatMass + " kg"]].map(function(item) {
