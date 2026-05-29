@@ -698,43 +698,41 @@ function DayDetail({ iso, burnLogs, onSaveBurn, weekSessions, activities, dailyS
             <MacroBar label="Fat"      value={summary.fat      || 0} goal={session ? config.nutrition.fatTraining  : config.nutrition.fatRest}  color="#fca5a5" />
           </div>
         )}
-        <div style={{ marginBottom: 14 }}>
-          <div style={{ fontSize: 11, color: "#999", fontWeight: 500, marginBottom: 8 }}>OMRON READING</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 10 }}>
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 10, color: "#aaa", marginBottom: 3 }}>WEIGHT (KG)</div>
-                <Stepper value={weight} onChange={function(v) { setWeight(v); setOmronSaved(false); }} step={0.1} placeholder="kg" />
-              </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 10, color: "#aaa", marginBottom: 3 }}>BF%</div>
-                <Stepper value={bf} onChange={function(v) { setBf(v); setOmronSaved(false); }} step={0.1} placeholder="%" />
-              </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 10, color: "#aaa", marginBottom: 3 }}>VISCERAL FAT</div>
-                <Stepper value={visceralFat} onChange={function(v) { setVisceralFat(v); setOmronSaved(false); }} step={1} placeholder="1–59" />
-              </div>
+        <div style={{ borderTop: "0.5px solid #eee", paddingTop: 14, marginBottom: 14 }}>
+          <div style={{ fontSize: 11, color: "#999", fontWeight: 500, marginBottom: 10 }}>OMRON READING</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+            <div>
+              <div style={{ fontSize: 10, color: "#aaa", fontWeight: 500, marginBottom: 4 }}>WEIGHT (KG)</div>
+              <Stepper value={weight} onChange={function(v) { setWeight(v); setOmronSaved(false); }} step={0.1} placeholder="kg" />
             </div>
+            <div>
+              <div style={{ fontSize: 10, color: "#aaa", fontWeight: 500, marginBottom: 4 }}>BODY FAT %</div>
+              <Stepper value={bf} onChange={function(v) { setBf(v); setOmronSaved(false); }} step={0.1} placeholder="%" />
+            </div>
+          </div>
+          <div style={{ marginBottom: 10 }}>
+            <div style={{ fontSize: 10, color: "#aaa", fontWeight: 500, marginBottom: 4 }}>VISCERAL FAT (1–59)</div>
+            <Stepper value={visceralFat} onChange={function(v) { setVisceralFat(v); setOmronSaved(false); }} step={1} placeholder="1–59" />
           </div>
           {leanMass && fatMass && (
             <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
               {[["Lean mass", leanMass + " kg"], ["Fat mass", fatMass + " kg"]].map(function(item) {
-                return <div key={item[0]} style={{ flex: 1, background: "#f5f5f3", borderRadius: 8, padding: "6px 10px", textAlign: "center" }}>
+                return <div key={item[0]} style={{ flex: 1, background: "#f5f5f3", borderRadius: 8, padding: "7px 10px", textAlign: "center" }}>
                   <div style={{ fontSize: 14, fontWeight: 500 }}>{item[1]}</div>
                   <div style={{ fontSize: 10, color: "#aaa" }}>{item[0]}</div>
                 </div>;
               })}
             </div>
           )}
-          <button onClick={saveOmron} style={{ width: "100%", padding: 11, background: omronSaved ? "#2d7a4f" : "#1a1a1a", color: "#fff", border: "none", borderRadius: 10, fontSize: 13, fontWeight: 500, cursor: "pointer" }}>{omronSaved ? "Saved" : "Save Omron reading"}</button>
+          <button onClick={saveOmron} style={{ width: "100%", padding: 12, background: omronSaved ? "#2d7a4f" : "#1a1a1a", color: "#fff", border: "none", borderRadius: 10, fontSize: 13, fontWeight: 500, cursor: "pointer" }}>{omronSaved ? "Saved" : "Save Omron reading"}</button>
         </div>
-        <div>
-          <div style={{ fontSize: 11, color: "#999", fontWeight: 500, marginBottom: 6 }}>CALORIES BURNED (PIXEL WATCH — RAW)</div>
+        <div style={{ borderTop: "0.5px solid #eee", marginTop: 14, paddingTop: 14 }}>
+          <div style={{ fontSize: 11, color: "#999", fontWeight: 500, marginBottom: 8 }}>CALORIES BURNED (PIXEL WATCH — RAW)</div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <input type="number" inputMode="numeric" value={burnInput} onChange={function(e) { setBurnInput(e.target.value); setSaved(false); }} placeholder="e.g. 2680" style={{ flex: 1, padding: "10px 12px", border: "0.5px solid #ccc", borderRadius: 8, fontSize: 15, fontWeight: 500 }} />
             <button onClick={saveBurn} style={{ padding: "10px 18px", background: "#1a1a1a", color: "#fff", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: "pointer" }}>{saved ? "Saved" : "Save"}</button>
           </div>
-          {correctedBurn && <div style={{ marginTop: 10, fontSize: 12, color: "#888" }}>Corrected: <strong>{correctedBurn} kcal</strong> (×{correction})</div>}
+          {correctedBurn && <div style={{ marginTop: 8, fontSize: 12, color: "#888" }}>Corrected: <strong>{correctedBurn} kcal</strong> (×{correction})</div>}
         </div>
       </div>
     </div>
