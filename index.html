@@ -144,14 +144,13 @@ var DEFAULT_CONFIG = {
 function Card({ children, style }) { return <div style={Object.assign({ background: "#fff", border: "0.5px solid #ddd", borderRadius: 12, marginBottom: 12, overflow: "hidden" }, style || {})}>{children}</div>; }
 function CardHdr({ left, right }) { return <div style={{ background: "#1a1a1a", color: "#fff", padding: "10px 14px", fontSize: 13, fontWeight: 500, display: "flex", justifyContent: "space-between", alignItems: "center" }}><span>{left}</span><span>{right}</span></div>; }
 function ActionBtn({ onClick, secondary, disabled, children }) { return <button onClick={onClick} disabled={disabled} style={{ width: "100%", padding: 13, background: disabled ? "#ccc" : secondary ? "#fff" : "#1a1a1a", color: secondary ? "#1a1a1a" : "#fff", border: secondary ? "0.5px solid #ccc" : "none", borderRadius: 10, fontSize: 14, fontWeight: 500, cursor: disabled ? "default" : "pointer", marginBottom: 8 }}>{children}</button>; }
-function Stepper({ value, onChange, step, placeholder, compact }) {
+function Stepper({ value, onChange, step, placeholder }) {
   var v = parseFloat(value) || 0;
-  var btnW = compact ? 36 : 48;
   return (
     <div style={{ display: "flex", alignItems: "center", border: "0.5px solid #ccc", borderRadius: 8, overflow: "hidden", background: "#fff", height: 48 }}>
-      <button style={{ width: btnW, height: 48, minWidth: btnW, border: "none", background: "#f5f5f3", cursor: "pointer", fontSize: 20, color: "#333" }} onClick={function() { onChange(String(Math.max(0, Math.round((v - step) * 100) / 100))); }}>-</button>
+      <button style={{ width: 48, height: 48, minWidth: 48, border: "none", background: "#f5f5f3", cursor: "pointer", fontSize: 20, color: "#333" }} onClick={function() { onChange(String(Math.max(0, Math.round((v - step) * 100) / 100))); }}>-</button>
       <input type="number" inputMode={step < 1 ? "decimal" : "numeric"} style={{ flex: 1, border: "none", textAlign: "center", fontSize: 18, fontWeight: 500, background: "#fff", minWidth: 0, padding: 0, height: 48 }} value={value} placeholder={placeholder} onChange={function(e) { onChange(e.target.value); }} />
-      <button style={{ width: btnW, height: 48, minWidth: btnW, border: "none", background: "#f5f5f3", cursor: "pointer", fontSize: 20, color: "#333" }} onClick={function() { onChange(String(Math.round((v + step) * 100) / 100)); }}>+</button>
+      <button style={{ width: 48, height: 48, minWidth: 48, border: "none", background: "#f5f5f3", cursor: "pointer", fontSize: 20, color: "#333" }} onClick={function() { onChange(String(Math.round((v + step) * 100) / 100)); }}>+</button>
     </div>
   );
 }
@@ -701,20 +700,20 @@ function DayDetail({ iso, burnLogs, onSaveBurn, weekSessions, activities, dailyS
         )}
         <div style={{ borderTop: "0.5px solid #eee", paddingTop: 14, marginBottom: 14 }}>
           <div style={{ fontSize: 11, color: "#999", fontWeight: 500, marginBottom: 10 }}>OMRON READING</div>
-<div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 10 }}>
-  <div>
-    <div style={{ fontSize: 10, color: "#aaa", fontWeight: 500, marginBottom: 4 }}>WEIGHT (KG)</div>
-    <Stepper value={weight} onChange={function(v) { setWeight(v); setOmronSaved(false); }} step={0.1} placeholder="kg" />
-  </div>
-  <div>
-    <div style={{ fontSize: 10, color: "#aaa", fontWeight: 500, marginBottom: 4 }}>BODY FAT %</div>
-    <Stepper value={bf} onChange={function(v) { setBf(v); setOmronSaved(false); }} step={0.1} placeholder="%" />
-  </div>
-  <div>
-    <div style={{ fontSize: 10, color: "#aaa", fontWeight: 500, marginBottom: 4 }}>VISCERAL FAT (1–59)</div>
-    <Stepper value={visceralFat} onChange={function(v) { setVisceralFat(v); setOmronSaved(false); }} step={1} placeholder="1–59" />
-  </div>
-</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+            <div>
+              <div style={{ fontSize: 10, color: "#aaa", fontWeight: 500, marginBottom: 4 }}>WEIGHT (KG)</div>
+              <Stepper value={weight} onChange={function(v) { setWeight(v); setOmronSaved(false); }} step={0.1} placeholder="kg" />
+            </div>
+            <div>
+              <div style={{ fontSize: 10, color: "#aaa", fontWeight: 500, marginBottom: 4 }}>BODY FAT %</div>
+              <Stepper value={bf} onChange={function(v) { setBf(v); setOmronSaved(false); }} step={0.1} placeholder="%" />
+            </div>
+          </div>
+          <div style={{ marginBottom: 10 }}>
+            <div style={{ fontSize: 10, color: "#aaa", fontWeight: 500, marginBottom: 4 }}>VISCERAL FAT (1–59)</div>
+            <Stepper value={visceralFat} onChange={function(v) { setVisceralFat(v); setOmronSaved(false); }} step={1} placeholder="1–59" />
+          </div>
           {leanMass && fatMass && (
             <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
               {[["Lean mass", leanMass + " kg"], ["Fat mass", fatMass + " kg"]].map(function(item) {
@@ -775,19 +774,42 @@ function WeekDetail({ weekKey, prevWeeklyRow, weeklyRow }) {
       )}
       <div style={{ fontSize: 11, color: "#999", fontWeight: 500, marginBottom: 10 }}>BODY COMPOSITION — WEEKLY AVG</div>
       {hasBodyComp ? (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 8 }}>
-          <div style={{ background: "#f5f5f3", borderRadius: 8, padding: "8px 10px", textAlign: "center" }}>
-            <div style={{ fontSize: 15, fontWeight: 500 }}>{wr.avg_bodyweight != null ? wr.avg_bodyweight + " kg" : "—"}{wr.avg_bodyweight != null && pw.avg_bodyweight != null ? delta(wr.avg_bodyweight, pw.avg_bodyweight, "kg", false) : null}</div>
-            <div style={{ fontSize: 10, color: "#aaa" }}>avg weight</div>
+        <div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 8 }}>
+            <div style={{ background: "#f5f5f3", borderRadius: 8, padding: "8px 10px", textAlign: "center" }}>
+              <div style={{ fontSize: 15, fontWeight: 500 }}>{wr.avg_bodyweight != null ? wr.avg_bodyweight + " kg" : "—"}{wr.avg_bodyweight != null && pw.avg_bodyweight != null ? delta(wr.avg_bodyweight, pw.avg_bodyweight, "kg", false) : null}</div>
+              <div style={{ fontSize: 10, color: "#aaa" }}>avg weight</div>
+            </div>
+            <div style={{ background: "#f5f5f3", borderRadius: 8, padding: "8px 10px", textAlign: "center" }}>
+              <div style={{ fontSize: 15, fontWeight: 500 }}>{wr.avg_body_fat != null ? wr.avg_body_fat + "%" : "—"}{wr.avg_body_fat != null && pw.avg_body_fat != null ? delta(wr.avg_body_fat, pw.avg_body_fat, "%", false) : null}</div>
+              <div style={{ fontSize: 10, color: "#aaa" }}>avg BF%</div>
+            </div>
+            <div style={{ background: "#f5f5f3", borderRadius: 8, padding: "8px 10px", textAlign: "center" }}>
+              <div style={{ fontSize: 15, fontWeight: 500 }}>{wr.avg_visceral_fat != null ? wr.avg_visceral_fat : "—"}{wr.avg_visceral_fat != null && pw.avg_visceral_fat != null ? delta(wr.avg_visceral_fat, pw.avg_visceral_fat, "", false) : null}</div>
+              <div style={{ fontSize: 10, color: "#aaa" }}>avg visceral</div>
+            </div>
           </div>
-          <div style={{ background: "#f5f5f3", borderRadius: 8, padding: "8px 10px", textAlign: "center" }}>
-            <div style={{ fontSize: 15, fontWeight: 500 }}>{wr.avg_body_fat != null ? wr.avg_body_fat + "%" : "—"}{wr.avg_body_fat != null && pw.avg_body_fat != null ? delta(wr.avg_body_fat, pw.avg_body_fat, "%", false) : null}</div>
-            <div style={{ fontSize: 10, color: "#aaa" }}>avg BF%</div>
-          </div>
-          <div style={{ background: "#f5f5f3", borderRadius: 8, padding: "8px 10px", textAlign: "center" }}>
-            <div style={{ fontSize: 15, fontWeight: 500 }}>{wr.avg_visceral_fat != null ? wr.avg_visceral_fat : "—"}{wr.avg_visceral_fat != null && pw.avg_visceral_fat != null ? delta(wr.avg_visceral_fat, pw.avg_visceral_fat, "", false) : null}</div>
-            <div style={{ fontSize: 10, color: "#aaa" }}>avg visceral</div>
-          </div>
+          {(function() {
+            var w = wr.avg_bodyweight, b = wr.avg_body_fat;
+            var pw_w = pw.avg_bodyweight, pw_b = pw.avg_body_fat;
+            if (!w || !b) return null;
+            var lean = Math.round(w * (1 - b / 100) * 10) / 10;
+            var fat  = Math.round(w * (b / 100) * 10) / 10;
+            var prevLean = (pw_w && pw_b) ? Math.round(pw_w * (1 - pw_b / 100) * 10) / 10 : null;
+            var prevFat  = (pw_w && pw_b) ? Math.round(pw_w * (pw_b / 100) * 10) / 10 : null;
+            return (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                <div style={{ background: "#f5f5f3", borderRadius: 8, padding: "8px 10px", textAlign: "center" }}>
+                  <div style={{ fontSize: 15, fontWeight: 500 }}>{lean + " kg"}{prevLean != null ? delta(lean, prevLean, "kg", false) : null}</div>
+                  <div style={{ fontSize: 10, color: "#aaa" }}>avg lean mass</div>
+                </div>
+                <div style={{ background: "#f5f5f3", borderRadius: 8, padding: "8px 10px", textAlign: "center" }}>
+                  <div style={{ fontSize: 15, fontWeight: 500 }}>{fat + " kg"}{prevFat != null ? delta(fat, prevFat, "kg", true) : null}</div>
+                  <div style={{ fontSize: 10, color: "#aaa" }}>avg fat mass</div>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       ) : (
         <div style={{ fontSize: 12, color: "#aaa", textAlign: "center", padding: "10px 0 6px" }}>No Omron readings logged this week yet.</div>
@@ -857,6 +879,7 @@ function getWeeksInMonth() {
               // Dots
               var dots = [];
               if (hasSession || hasActivity) dots.push({ color: "#2d7a4f", key: "g" });
+              if (hasOmron) dots.push({ color: "#8b5cf6", key: "o" });
               if (summary) {
                 if ((summary.protein || 0) < (config.nutrition.protein - 20))                    dots.push({ color: "#3b82f6", key: "b" });
                 if ((summary.fat    || 0) > (config.nutrition.fatTraining + 15))                  dots.push({ color: "#f97316", key: "f" });
@@ -889,7 +912,7 @@ function getWeeksInMonth() {
             })}
           </div>
           <div style={{ marginTop: 6, display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {[["#2d7a4f","Session/activity"],["#3b82f6","Low protein"],["#f97316","High fat"],["#a855f7","High carbs"]].map(function(item) {
+            {[["#2d7a4f","Session/activity"],["#8b5cf6","Omron logged"],["#3b82f6","Low protein"],["#f97316","High fat"],["#a855f7","High carbs"]].map(function(item) {
               return <div key={item[1]} style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 10, color: "#666" }}>
                 <div style={{ width: 6, height: 6, borderRadius: "50%", background: item[0] }} />{item[1]}
               </div>;
