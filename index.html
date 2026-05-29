@@ -845,20 +845,20 @@ function DayDetail({ iso, burnLogs, onSaveBurn, weekSessions, activities, dailyS
         )}
         <div style={{ borderTop: "0.5px solid #eee", paddingTop: 14, marginBottom: 14 }}>
           <div style={{ fontSize: 11, color: "#999", fontWeight: 500, marginBottom: 10 }}>OMRON READING</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
-            <div>
-              <div style={{ fontSize: 10, color: "#aaa", fontWeight: 500, marginBottom: 4 }}>WEIGHT (KG)</div>
-              <Stepper value={weight} onChange={function(v) { setWeight(v); setOmronSaved(false); }} step={0.1} placeholder="kg" />
-            </div>
-            <div>
-              <div style={{ fontSize: 10, color: "#aaa", fontWeight: 500, marginBottom: 4 }}>BODY FAT %</div>
-              <Stepper value={bf} onChange={function(v) { setBf(v); setOmronSaved(false); }} step={0.1} placeholder="%" />
-            </div>
-          </div>
-          <div style={{ marginBottom: 10 }}>
-            <div style={{ fontSize: 10, color: "#aaa", fontWeight: 500, marginBottom: 4 }}>VISCERAL FAT (1–59)</div>
-            <Stepper value={visceralFat} onChange={function(v) { setVisceralFat(v); setOmronSaved(false); }} step={1} placeholder="1–59" />
-          </div>
+<div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 10 }}>
+  <div>
+    <div style={{ fontSize: 10, color: "#aaa", fontWeight: 500, marginBottom: 4 }}>WEIGHT (KG)</div>
+    <Stepper value={weight} onChange={function(v) { setWeight(v); setOmronSaved(false); }} step={0.1} placeholder="kg" />
+  </div>
+  <div>
+    <div style={{ fontSize: 10, color: "#aaa", fontWeight: 500, marginBottom: 4 }}>BODY FAT %</div>
+    <Stepper value={bf} onChange={function(v) { setBf(v); setOmronSaved(false); }} step={0.1} placeholder="%" />
+  </div>
+  <div>
+    <div style={{ fontSize: 10, color: "#aaa", fontWeight: 500, marginBottom: 4 }}>VISCERAL FAT (1–59)</div>
+    <Stepper value={visceralFat} onChange={function(v) { setVisceralFat(v); setOmronSaved(false); }} step={1} placeholder="1–59" />
+  </div>
+</div>
           {leanMass && fatMass && (
             <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
               {[["Lean mass", leanMass + " kg"], ["Fat mass", fatMass + " kg"]].map(function(item) {
@@ -1017,14 +1017,12 @@ function getWeeksInMonth() {
               var isToday = iso === today, isSelected = iso === selectedISO;
               var hasSession  = allSessions.some(function(s) { return s.date === iso; });
               var hasActivity = activities.some(function(a) { return a.date === iso; });
-              var hasOmron    = !!omronLogs[iso];
               var summary = dailySummaryLogs[iso];
               var bg = dayCellBg(iso, burnLogs, dailySummaryLogs, correction);
 
               // Dots
               var dots = [];
               if (hasSession || hasActivity) dots.push({ color: "#2d7a4f", key: "g" });
-              if (hasOmron) dots.push({ color: "#8b5cf6", key: "o" });
               if (summary) {
                 if ((summary.protein || 0) < (config.nutrition.protein - 20))                    dots.push({ color: "#3b82f6", key: "b" });
                 if ((summary.fat    || 0) > (config.nutrition.fatTraining + 15))                  dots.push({ color: "#f97316", key: "f" });
@@ -1057,7 +1055,7 @@ function getWeeksInMonth() {
             })}
           </div>
           <div style={{ marginTop: 6, display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {[["#2d7a4f","Session/activity"],["#8b5cf6","Omron logged"],["#3b82f6","Low protein"],["#f97316","High fat"],["#a855f7","High carbs"]].map(function(item) {
+            {[["#2d7a4f","Session/activity"],["#3b82f6","Low protein"],["#f97316","High fat"],["#a855f7","High carbs"]].map(function(item) {
               return <div key={item[1]} style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 10, color: "#666" }}>
                 <div style={{ width: 6, height: 6, borderRadius: "50%", background: item[0] }} />{item[1]}
               </div>;
