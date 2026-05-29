@@ -629,16 +629,37 @@ function dayCellBg(iso, burnLogs, dailySummaryLogs, correction) {
   return "#fca5a5";                       // red
 }
 
-function DayDetail({ iso, burnLogs, onSaveBurn, weekSessions, activities, dailySummaryLogs, correction, config }) {
+function DayDetail({ iso, burnLogs, onSaveBurn, weekSessions, activities, dailySummaryLogs, correction, config, omronLogs, onSaveOmron }) {
   var existing = burnLogs[iso] ? String(burnLogs[iso]) : "";
   var [burnInput, setBurnInput] = useState(existing);
   var [saved, setSaved] = useState(false);
-  useEffect(function() { setBurnInput(burnLogs[iso] ? String(burnLogs[iso]) : ""); }, [iso]);
+  var existingOmron = omronLogs[iso] || null;
+  var [weight, setWeight]           = useState(existingOmron ? String(existingOmron.bodyweight)    : "");
+  var [bf, setBf]                   = useState(existingOmron ? String(existingOmron.body_fat)       : "");
+  var [visceralFat, setVisceralFat] = useState(existingOmron && existingOmron.visceral_fat != null ? String(existingOmron.visceral_fat) : "");
+  var [omronSaved, setOmronSaved]   = useState(false);
+  useEffect(function() {
+    setBurnInput(burnLogs[iso] ? String(burnLogs[iso]) : "");
+    var o = omronLogs[iso] || null;
+    setWeight(o ? String(o.bodyweight) : "");
+    setBf(o ? String(o.body_fat) : "");
+    setVisceralFat(o && o.visceral_fat != null ? String(o.visceral_fat) : "");
+    setOmronSaved(false);
+  }, [iso]);
   var burn = burnLogs[iso]; var correctedBurn = burn ? Math.round(burn * correction) : null;
   var session = weekSessions.find(function(s) { return s.date === iso; });
   var activity = activities.find(function(a) { return a.date === iso; });
   var summary = dailySummaryLogs[iso];
   function saveBurn() { var v = parseFloat(burnInput); if (!v || isNaN(v)) return; onSaveBurn(iso, v); setSaved(true); setTimeout(function() { setSaved(false); }, 2000); }
+  function saveOmron() {
+    var w = parseFloat(weight), b = parseFloat(bf), vf = visceralFat !== "" ? parseInt(visceralFat) : null;
+    if (!w || !b || isNaN(w) || isNaN(b)) return;
+    onSaveOmron(iso, w, b, vf);
+    setOmronSaved(true);
+    setTimeout(function() { setOmronSaved(false); }, 2000);
+  }
+  var leanMass = weight && bf ? Math.round(parseFloat(weight) * (1 - parseFloat(bf) / 100) * 10) / 10 : null;
+  var fatMass  = weight && bf ? Math.round(parseFloat(weight) * (parseFloat(bf) / 100) * 10) / 10 : null;
   var label = new Date(iso + "T12:00:00").toLocaleDateString("en", { weekday: "long", month: "long", day: "numeric" });
   var calGoal = session ? config.nutrition.caloriesTraining : config.nutrition.caloriesRest;
   return (
@@ -677,6 +698,36 @@ function DayDetail({ iso, burnLogs, onSaveBurn, weekSessions, activities, dailyS
             <MacroBar label="Fat"      value={summary.fat      || 0} goal={session ? config.nutrition.fatTraining  : config.nutrition.fatRest}  color="#fca5a5" />
           </div>
         )}
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 11, color: "#999", fontWeight: 500, marginBottom: 8 }}>OMRON READING</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 10 }}>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 10, color: "#aaa", marginBottom: 3 }}>WEIGHT (KG)</div>
+                <Stepper value={weight} onChange={function(v) { setWeight(v); setOmronSaved(false); }} step={0.1} placeholder="kg" />
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 10, color: "#aaa", marginBottom: 3 }}>BF%</div>
+                <Stepper value={bf} onChange={function(v) { setBf(v); setOmronSaved(false); }} step={0.1} placeholder="%" />
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 10, color: "#aaa", marginBottom: 3 }}>VISCERAL FAT</div>
+                <Stepper value={visceralFat} onChange={function(v) { setVisceralFat(v); setOmronSaved(false); }} step={1} placeholder="1–59" />
+              </div>
+            </div>
+          </div>
+          {leanMass && fatMass && (
+            <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+              {[["Lean mass", leanMass + " kg"], ["Fat mass", fatMass + " kg"]].map(function(item) {
+                return <div key={item[0]} style={{ flex: 1, background: "#f5f5f3", borderRadius: 8, padding: "6px 10px", textAlign: "center" }}>
+                  <div style={{ fontSize: 14, fontWeight: 500 }}>{item[1]}</div>
+                  <div style={{ fontSize: 10, color: "#aaa" }}>{item[0]}</div>
+                </div>;
+              })}
+            </div>
+          )}
+          <button onClick={saveOmron} style={{ width: "100%", padding: 11, background: omronSaved ? "#2d7a4f" : "#1a1a1a", color: "#fff", border: "none", borderRadius: 10, fontSize: 13, fontWeight: 500, cursor: "pointer" }}>{omronSaved ? "Saved" : "Save Omron reading"}</button>
+        </div>
         <div>
           <div style={{ fontSize: 11, color: "#999", fontWeight: 500, marginBottom: 6 }}>CALORIES BURNED (PIXEL WATCH — RAW)</div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -690,26 +741,19 @@ function DayDetail({ iso, burnLogs, onSaveBurn, weekSessions, activities, dailyS
   );
 }
 
-function WeekDetail({ weekKey, omronData, prevOmronData, weeklyRow, onSaveOmron }) {
-  var [weight, setWeight] = useState(omronData ? String(omronData.bodyweight) : "");
-  var [bf, setBf] = useState(omronData ? String(omronData.body_fat) : "");
-  var [saved, setSaved] = useState(false);
-  var leanMass = weight && bf ? Math.round(parseFloat(weight) * (1 - parseFloat(bf) / 100) * 10) / 10 : null;
-  var fatMass  = weight && bf ? Math.round(parseFloat(weight) * (parseFloat(bf) / 100) * 10) / 10 : null;
-  function save() { var w = parseFloat(weight), b = parseFloat(bf); if (!w || !b || isNaN(w) || isNaN(b)) return; onSaveOmron(weekKey, w, b); setSaved(true); setTimeout(function() { setSaved(false); }, 2000); }
-  function delta(curr, prev, unit, invert) {
-    if (!curr || !prev) return null;
+function WeekDetail({ weekKey, prevWeeklyRow, weeklyRow }) {
+  function delta(curr, prev, unit, invertColor) {
+    if (curr == null || prev == null) return null;
     var d = Math.round((curr - prev) * 10) / 10;
-    var positive = invert ? d < 0 : d > 0;
-    var color = d === 0 ? "#888" : positive ? "#dc2626" : "#166534";
+    var isGood = invertColor ? d < 0 : d > 0;
+    var color = d === 0 ? "#888" : isGood ? "#166534" : "#dc2626";
     return <span style={{ fontSize: 11, color: color, marginLeft: 4 }}>{d > 0 ? "+" : ""}{d}{unit}</span>;
   }
-  var w = parseFloat(weight), b = parseFloat(bf);
-  var prevW = prevOmronData ? prevOmronData.bodyweight : null;
-  var prevB = prevOmronData ? prevOmronData.body_fat   : null;
   var wr = weeklyRow || {};
+  var pw = prevWeeklyRow || {};
   var totalMeals = wr.total_meals || 0;
   var eatOutPct  = totalMeals > 0 ? Math.round((wr.eat_out_meals / totalMeals) * 100) : null;
+  var hasBodyComp = wr.avg_bodyweight != null || wr.avg_body_fat != null;
   return (
     <div style={{ background: "#fff", border: "0.5px solid #ddd", borderTop: "none", borderRadius: "0 0 10px 10px", padding: 14, marginBottom: 8 }}>
       {wr.week_key && (
@@ -719,7 +763,7 @@ function WeekDetail({ weekKey, omronData, prevOmronData, weeklyRow, onSaveOmron 
             {[
               ["Sessions", wr.sessions || 0],
               ["Total volume", (wr.total_difficulty || 0) + " kg"],
-              ["Avg energy balance", wr.avg_energy_balance !== null && wr.avg_energy_balance !== undefined ? wr.avg_energy_balance + " kcal" : "-"],
+              ["Avg energy balance", wr.avg_energy_balance != null ? wr.avg_energy_balance + " kcal" : "-"],
               ["Eat-out", eatOutPct !== null ? eatOutPct + "%" : "-"]
             ].map(function(item) {
               return <div key={item[0]} style={{ background: "#f5f5f3", borderRadius: 8, padding: "8px 10px", textAlign: "center" }}>
@@ -730,32 +774,25 @@ function WeekDetail({ weekKey, omronData, prevOmronData, weeklyRow, onSaveOmron 
           </div>
         </div>
       )}
-      <div style={{ fontSize: 11, color: "#999", fontWeight: 500, marginBottom: 12 }}>OMRON WEEKLY READING</div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 14 }}>
-        <div>
-          <div style={{ fontSize: 11, color: "#999", fontWeight: 500, marginBottom: 4 }}>
-            BODYWEIGHT (KG){w && prevW ? delta(w, prevW, "kg", true) : null}
+      <div style={{ fontSize: 11, color: "#999", fontWeight: 500, marginBottom: 10 }}>BODY COMPOSITION — WEEKLY AVG</div>
+      {hasBodyComp ? (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 8 }}>
+          <div style={{ background: "#f5f5f3", borderRadius: 8, padding: "8px 10px", textAlign: "center" }}>
+            <div style={{ fontSize: 15, fontWeight: 500 }}>{wr.avg_bodyweight != null ? wr.avg_bodyweight + " kg" : "—"}{wr.avg_bodyweight != null && pw.avg_bodyweight != null ? delta(wr.avg_bodyweight, pw.avg_bodyweight, "kg", false) : null}</div>
+            <div style={{ fontSize: 10, color: "#aaa" }}>avg weight</div>
           </div>
-          <Stepper value={weight} onChange={function(v) { setWeight(v); setSaved(false); }} step={0.1} placeholder="kg" />
-        </div>
-        <div>
-          <div style={{ fontSize: 11, color: "#999", fontWeight: 500, marginBottom: 4 }}>
-            BODY FAT (%){b && prevB ? delta(b, prevB, "%", true) : null}
+          <div style={{ background: "#f5f5f3", borderRadius: 8, padding: "8px 10px", textAlign: "center" }}>
+            <div style={{ fontSize: 15, fontWeight: 500 }}>{wr.avg_body_fat != null ? wr.avg_body_fat + "%" : "—"}{wr.avg_body_fat != null && pw.avg_body_fat != null ? delta(wr.avg_body_fat, pw.avg_body_fat, "%", false) : null}</div>
+            <div style={{ fontSize: 10, color: "#aaa" }}>avg BF%</div>
           </div>
-          <Stepper value={bf} onChange={function(v) { setBf(v); setSaved(false); }} step={0.1} placeholder="%" />
+          <div style={{ background: "#f5f5f3", borderRadius: 8, padding: "8px 10px", textAlign: "center" }}>
+            <div style={{ fontSize: 15, fontWeight: 500 }}>{wr.avg_visceral_fat != null ? wr.avg_visceral_fat : "—"}{wr.avg_visceral_fat != null && pw.avg_visceral_fat != null ? delta(wr.avg_visceral_fat, pw.avg_visceral_fat, "", false) : null}</div>
+            <div style={{ fontSize: 10, color: "#aaa" }}>avg visceral</div>
+          </div>
         </div>
-      </div>
-      {leanMass && fatMass && (
-        <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
-          {[["Lean mass", leanMass + " kg"], ["Fat mass", fatMass + " kg"]].map(function(item) {
-            return <div key={item[0]} style={{ flex: 1, background: "#f5f5f3", borderRadius: 8, padding: "8px 10px", textAlign: "center" }}>
-              <div style={{ fontSize: 16, fontWeight: 500 }}>{item[1]}</div>
-              <div style={{ fontSize: 10, color: "#aaa" }}>{item[0]}</div>
-            </div>;
-          })}
-        </div>
+      ) : (
+        <div style={{ fontSize: 12, color: "#aaa", textAlign: "center", padding: "10px 0 6px" }}>No Omron readings logged this week yet.</div>
       )}
-      <button onClick={save} style={{ width: "100%", padding: 13, background: saved ? "#2d7a4f" : "#1a1a1a", color: "#fff", border: "none", borderRadius: 10, fontSize: 14, fontWeight: 500, cursor: "pointer" }}>{saved ? "Saved" : "Save Omron reading"}</button>
     </div>
   );
 }
@@ -814,15 +851,17 @@ function getWeeksInMonth() {
               var isToday = iso === today, isSelected = iso === selectedISO;
               var hasSession  = allSessions.some(function(s) { return s.date === iso; });
               var hasActivity = activities.some(function(a) { return a.date === iso; });
+              var hasOmron    = !!omronLogs[iso];
               var summary = dailySummaryLogs[iso];
               var bg = dayCellBg(iso, burnLogs, dailySummaryLogs, correction);
 
               // Dots
               var dots = [];
               if (hasSession || hasActivity) dots.push({ color: "#2d7a4f", key: "g" });
+              if (hasOmron) dots.push({ color: "#8b5cf6", key: "o" });
               if (summary) {
                 if ((summary.protein || 0) < (config.nutrition.protein - 20))                    dots.push({ color: "#3b82f6", key: "b" });
-                if ((summary.fat    || 0) > (config.nutrition.fatTraining + 15))                  dots.push({ color: "#f97316", key: "o" });
+                if ((summary.fat    || 0) > (config.nutrition.fatTraining + 15))                  dots.push({ color: "#f97316", key: "f" });
                 if ((summary.carbs  || 0) > ((hasSession ? config.nutrition.carbsTraining : config.nutrition.carbsRest) + 30)) dots.push({ color: "#a855f7", key: "p" });
               }
 
@@ -842,7 +881,7 @@ function getWeeksInMonth() {
             })}
           </div>
 
-          {selectedISO && <DayDetail iso={selectedISO} burnLogs={burnLogs} onSaveBurn={onSaveBurn} weekSessions={allSessions} activities={activities} dailySummaryLogs={dailySummaryLogs} correction={correction} config={config} />}
+          {selectedISO && <DayDetail iso={selectedISO} burnLogs={burnLogs} onSaveBurn={onSaveBurn} weekSessions={allSessions} activities={activities} dailySummaryLogs={dailySummaryLogs} correction={correction} config={config} omronLogs={omronLogs} onSaveOmron={onSaveOmron} />}
 
           <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
             {[["#166534","Deficit 300+"],["#bbf7d0","Deficit/neutral"],["#fde68a","Surplus <300"],["#fca5a5","Surplus 300+"],["#e8e8e6","No data"]].map(function(item) {
@@ -852,7 +891,7 @@ function getWeeksInMonth() {
             })}
           </div>
           <div style={{ marginTop: 6, display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {[["#2d7a4f","Session/activity"],["#3b82f6","Low protein"],["#f97316","High fat"],["#a855f7","High carbs"]].map(function(item) {
+            {[["#2d7a4f","Session/activity"],["#8b5cf6","Omron logged"],["#3b82f6","Low protein"],["#f97316","High fat"],["#a855f7","High carbs"]].map(function(item) {
               return <div key={item[1]} style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 10, color: "#666" }}>
                 <div style={{ width: 6, height: 6, borderRadius: "50%", background: item[0] }} />{item[1]}
               </div>;
@@ -864,21 +903,22 @@ function getWeeksInMonth() {
       {calView === "weekly" && (
         <div>
           {getWeeksInMonth().map(function(w) {
-            var omronData = omronLogs[w.key] || null;
             var prevKey   = getPrevWeekKey(w.key);
-            var prevOmron = omronLogs[prevKey] || null;
             var weeklyRow = weeklySummaryLogs[w.key] || null;
+            var prevWeeklyRow = weeklySummaryLogs[prevKey] || null;
+            var avgW = weeklyRow && weeklyRow.avg_bodyweight != null ? weeklyRow.avg_bodyweight : null;
+            var avgBf = weeklyRow && weeklyRow.avg_body_fat != null ? weeklyRow.avg_body_fat : null;
             return (
               <div key={w.key}>
                 <div onClick={function() { setSelectedWeek(selectedWeek === w.key ? null : w.key); }}
                   style={{ background: "#fff", border: "0.5px solid #ddd", borderRadius: selectedWeek === w.key ? "10px 10px 0 0" : 10, padding: "12px 14px", marginBottom: selectedWeek === w.key ? 0 : 8, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <span style={{ fontSize: 13, fontWeight: 500 }}>{w.label}</span>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    {omronData && <span style={{ fontSize: 11, color: "#2d7a4f", fontWeight: 500 }}>{omronData.bodyweight} kg · {omronData.body_fat}% BF</span>}
+                    {avgW != null && <span style={{ fontSize: 11, color: "#2d7a4f", fontWeight: 500 }}>{avgW} kg{avgBf != null ? " · " + avgBf + "% BF" : ""}</span>}
                     <span style={{ fontSize: 14, color: "#aaa" }}>{selectedWeek === w.key ? "^" : "v"}</span>
                   </div>
                 </div>
-                {selectedWeek === w.key && <WeekDetail weekKey={w.key} omronData={omronData} prevOmronData={prevOmron} weeklyRow={weeklyRow} onSaveOmron={onSaveOmron} />}
+                {selectedWeek === w.key && <WeekDetail weekKey={w.key} weeklyRow={weeklyRow} prevWeeklyRow={prevWeeklyRow} />}
               </div>
             );
           })}
@@ -1014,7 +1054,7 @@ function App() {
           if (weeklyMap[wkKey]) setWeeklyRow(weeklyMap[wkKey]);
         }
 
-        // All Omron readings (for weekly view deltas)
+        // All Omron readings (date → row map for daily input)
         var allOmron = await supabaseQuery({
           action: "select", table: "body_composition",
           order: "entry_date.asc"
@@ -1022,8 +1062,7 @@ function App() {
         if (Array.isArray(allOmron)) {
           var omronMap = {};
           allOmron.forEach(function(r) {
-            var wk = getWeekKey(r.entry_date);
-            omronMap[wk] = r;
+            omronMap[r.entry_date] = r;
           });
           setOmronLogs(omronMap);
         }
@@ -1135,11 +1174,11 @@ async function upsertDailySummaryForDate(date) {
     } catch(e) { console.error("Save burn error:", e); }
   }
 
-  async function handleSaveOmron(weekKey, weight, bf) {
+  async function handleSaveOmron(date, weight, bf, visceralFat) {
     var leanMass = Math.round(weight * (1 - bf / 100) * 10) / 10;
-    var fatMass = Math.round(weight * (bf / 100) * 10) / 10;
-    var row = { entry_date: todayISO(), week_number: parseInt(weekKey.split("_W")[1]) || null, bodyweight: weight, body_fat: bf, lean_mass: leanMass, fat_mass: fatMass };
-    setOmronLogs(function(prev) { var n = Object.assign({}, prev); n[weekKey] = row; return n; });
+    var fatMass  = Math.round(weight * (bf  / 100) * 10) / 10;
+    var row = { entry_date: date, bodyweight: weight, body_fat: bf, lean_mass: leanMass, fat_mass: fatMass, visceral_fat: visceralFat || null };
+    setOmronLogs(function(prev) { var n = Object.assign({}, prev); n[date] = row; return n; });
     try {
       await supabaseQuery({ action: "upsert", table: "body_composition", data: row });
       syncSheet();
