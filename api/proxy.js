@@ -228,6 +228,10 @@ async function recalcWeeklySummary(date) {
     { column: "date", op: "gte", value: weekStart },
     { column: "date", op: "lte", value: weekEnd },
   ]);
+  const bodyCompRows = await supabaseSelect("body_composition", [
+    { column: "entry_date", op: "gte", value: weekStart },
+    { column: "entry_date", op: "lte", value: weekEnd },
+  ]);
 
   if (!days.length) return;
 
@@ -255,21 +259,32 @@ const MAIN_MEALS = ["Breakfast", "Lunch", "Dinner"];
 
   const proteinHits = days.filter(d => d.protein >= d.protein_goal).length;
 
+  // Body composition averages — only from rows that have values (skip nulls)
+  const bcWeight = bodyCompRows.filter(r => r.bodyweight != null);
+  const bcFat    = bodyCompRows.filter(r => r.body_fat != null);
+  const bcVisc   = bodyCompRows.filter(r => r.visceral_fat != null);
+  const avgBcWeight = bcWeight.length ? Math.round(bcWeight.reduce((s, r) => s + r.bodyweight, 0) / bcWeight.length * 10) / 10 : null;
+  const avgBcFat    = bcFat.length    ? Math.round(bcFat.reduce((s, r)    => s + r.body_fat,   0) / bcFat.length   * 10) / 10 : null;
+  const avgBcVisc   = bcVisc.length   ? Math.round(bcVisc.reduce((s, r)   => s + r.visceral_fat, 0) / bcVisc.length * 10) / 10 : null;
+
   const weekly = {
-    week_key:           weekKey,
-    week_start:         weekStart,
-    days_logged:        days.length,
-    avg_calories:       Math.round(avg(days, "calories")),
-    avg_protein:        Math.round(avg(days, "protein")),
-    protein_compliance: Math.round((proteinHits / days.length) * 100),
-    calorie_compliance: Math.round(days.filter(d => Math.abs(d.calorie_delta) <= 100).length / days.length * 100),
-    eat_out_meals:      eatOutMeals,
-    home_meals:         homeMeals,
-    total_meals:        totalMeals,
-    sessions:           sessions.length,
-    total_difficulty:   sum(sessions, "difficulty_kg"),
-    avg_energy_balance: Math.round(avg(days, "energy_balance")),
-    updated_at:         new Date().toISOString(),
+    week_key:             weekKey,
+    week_start:           weekStart,
+    days_logged:          days.length,
+    avg_calories:         Math.round(avg(days, "calories")),
+    avg_protein:          Math.round(avg(days, "protein")),
+    protein_compliance:   Math.round((proteinHits / days.length) * 100),
+    calorie_compliance:   Math.round(days.filter(d => Math.abs(d.calorie_delta) <= 100).length / days.length * 100),
+    eat_out_meals:        eatOutMeals,
+    home_meals:           homeMeals,
+    total_meals:          totalMeals,
+    sessions:             sessions.length,
+    total_difficulty:     sum(sessions, "difficulty_kg"),
+    avg_energy_balance:   Math.round(avg(days, "energy_balance")),
+    avg_bodyweight:       avgBcWeight,
+    avg_body_fat:         avgBcFat,
+    avg_visceral_fat:     avgBcVisc,
+    updated_at:           new Date().toISOString(),
   };
 
   await fetch(`${SUPABASE_REST}/weekly_summary`, {
