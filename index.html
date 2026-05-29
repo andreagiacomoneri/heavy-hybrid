@@ -788,7 +788,28 @@ function WeekDetail({ weekKey, prevWeeklyRow, weeklyRow }) {
             <div style={{ fontSize: 15, fontWeight: 500 }}>{wr.avg_visceral_fat != null ? wr.avg_visceral_fat : "—"}{wr.avg_visceral_fat != null && pw.avg_visceral_fat != null ? delta(wr.avg_visceral_fat, pw.avg_visceral_fat, "", false) : null}</div>
             <div style={{ fontSize: 10, color: "#aaa" }}>avg visceral</div>
           </div>
-        </div>
+</div>
+        {(function() {
+          var w = wr.avg_bodyweight, b = wr.avg_body_fat;
+          var pw_w = pw.avg_bodyweight, pw_b = pw.avg_body_fat;
+          if (!w || !b) return null;
+          var lean = Math.round(w * (1 - b / 100) * 10) / 10;
+          var fat  = Math.round(w * (b / 100) * 10) / 10;
+          var prevLean = (pw_w && pw_b) ? Math.round(pw_w * (1 - pw_b / 100) * 10) / 10 : null;
+          var prevFat  = (pw_w && pw_b) ? Math.round(pw_w * (pw_b / 100) * 10) / 10 : null;
+          return (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              <div style={{ background: "#f5f5f3", borderRadius: 8, padding: "8px 10px", textAlign: "center" }}>
+                <div style={{ fontSize: 15, fontWeight: 500 }}>{lean + " kg"}{prevLean != null ? delta(lean, prevLean, "kg", false) : null}</div>
+                <div style={{ fontSize: 10, color: "#aaa" }}>avg lean mass</div>
+              </div>
+              <div style={{ background: "#f5f5f3", borderRadius: 8, padding: "8px 10px", textAlign: "center" }}>
+                <div style={{ fontSize: 15, fontWeight: 500 }}>{fat + " kg"}{prevFat != null ? delta(fat, prevFat, "kg", true) : null}</div>
+                <div style={{ fontSize: 10, color: "#aaa" }}>avg fat mass</div>
+              </div>
+            </div>
+          );
+        })()}
       ) : (
         <div style={{ fontSize: 12, color: "#aaa", textAlign: "center", padding: "10px 0 6px" }}>No Omron readings logged this week yet.</div>
       )}
