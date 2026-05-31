@@ -367,65 +367,6 @@ function TrainingSummary({ session, logs, wl, estDur, dur, buildCSV, syncStatus 
 }
 
 
-// ── CIRCUIT SCREEN ────────────────────────────────────────────
-var CircuitScreen = memo(function CircuitScreen({ b, round, rounds, logs, lastSessionSets, onLog, onSkip, updateLog }) {
-  return (
-    <div style={{ padding: 16 }}>
-      <div style={{ fontSize: 12, color: "#888", marginBottom: 14 }}>
-        Complete all exercises below, then rest {b.rest_between_rounds || 90}s between rounds.
-        {b.rest_between_exercises ? " Rest " + (b.rest_between_exercises) + "s between exercises." : ""}
-      </div>
-      {b.exercises.map(function(ex, ei) {
-        return (
-          <div key={ex.id} style={{ background: "#f9f9f7", border: "0.5px solid #eee", borderRadius: 10, marginBottom: 12, overflow: "hidden" }}>
-            <div style={{ padding: "10px 14px", background: "#f0f0ee", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 500 }}>{ex.name}</div>
-                <div style={{ fontSize: 11, color: "#888" }}>{ex.equip} · {ex.reps}{ex.ru} · {ex.kg > 0 ? ex.kg + " kg" : "BW"}</div>
-              </div>
-            </div>
-            <div style={{ padding: "8px 14px 10px", fontSize: 11, color: "#777", borderBottom: "0.5px solid #eee", fontStyle: "italic" }}>{ex.cue}</div>
-            {Array.from({ length: ex.sets }, function(_, setIdx) {
-              var globalSi = round * ex.sets + setIdx;
-              var lg = (logs[ex.id] && logs[ex.id][globalSi]) || {};
-              var lastRef = lastSessionSets.filter(function(s) { return s.exercise === ex.name && s.set_number === globalSi + 1; })[0] || null;
-              return (
-                <div key={setIdx} style={{ padding: "10px 14px", borderBottom: setIdx < ex.sets - 1 ? "0.5px solid #eee" : "none", opacity: lg.done ? 0.5 : 1 }}>
-                  <div style={{ fontSize: 11, color: "#999", fontWeight: 500, marginBottom: 6 }}>
-                    SET {setIdx + 1}{ex.sets > 1 ? " OF " + ex.sets : ""}
-                    {lg.done && <span style={{ color: "#2d7a4f", marginLeft: 8 }}>✓</span>}
-                  </div>
-                  {lastRef && <div style={{ fontSize: 11, color: "#888", background: "#f0f0ee", borderRadius: 6, padding: "4px 8px", marginBottom: 8 }}>Last: {lastRef.actual_reps || "-"} reps · {lastRef.actual_kg || "-"} kg · {lastRef.rir_score ? RIR_MAP[lastRef.rir_score] : "-"}</div>}
-                  {ex.ru === "sec" && !lg.done && <ExTimer reps={ex.reps} />}
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 8 }}>
-                    <div>
-                      <div style={{ fontSize: 10, color: "#999", fontWeight: 500, marginBottom: 3 }}>REPS{ex.ru && ex.ru !== "sec" ? " (" + ex.ru + ")" : ""}</div>
-                      <Stepper value={lg.reps !== "" && lg.reps != null ? lg.reps : String(ex.reps)} onChange={function(v) { updateLog(ex.id, globalSi, "reps", v); }} step={1} placeholder={String(ex.reps)} />
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 10, color: "#999", fontWeight: 500, marginBottom: 3 }}>WEIGHT (KG)</div>
-                      <Stepper value={lg.weight !== "" && lg.weight != null ? lg.weight : (ex.kg > 0 ? String(ex.kg) : "")} onChange={function(v) { updateLog(ex.id, globalSi, "weight", v); }} step={0.5} placeholder={ex.kg > 0 ? String(ex.kg) : "kg"} />
-                    </div>
-                  </div>
-                  <div style={{ fontSize: 10, color: "#999", fontWeight: 500, marginBottom: 6 }}>EFFORT (RESERVE)</div>
-                  <div style={{ display: "flex", gap: 4, marginBottom: 10 }}>
-                    {RIR_LABELS.map(function(r) { return <div key={r.val} style={Object.assign({}, rirOptStyle(r.val, lg.rir === r.val), { fontSize: 11 })} onClick={function() { updateLog(ex.id, globalSi, "rir", r.val); }}><div style={{ fontSize: 11, fontWeight: 500 }}>{r.label}</div><div style={{ fontSize: 9, color: lg.rir === r.val ? "inherit" : "#999" }}>{r.sub}</div></div>; })}
-                  </div>
-                  {!lg.done && (
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <button style={{ flex: 3, padding: 11, background: "#1a1a1a", color: "#fff", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: "pointer" }} onClick={function() { onLog(ei, setIdx); }}>Log</button>
-                      <button style={{ flex: 1, padding: 11, background: "#fff", color: "#aaa", border: "0.5px solid #e0e0e0", borderRadius: 8, fontSize: 12, cursor: "pointer" }} onClick={function() { onSkip(ei, setIdx); }}>Skip</button>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        );
-      })}
-    </div>
-  );
-});
 
 // ── TRAINING TAB ──────────────────────────────────────────────
 function TrainingTab({ config, onSessionSaved, lastSessionSets }) {
@@ -650,24 +591,58 @@ function TrainingTab({ config, onSessionSaved, lastSessionSets }) {
         var rounds = (b.rounds && b.rounds > 1) ? b.rounds : 1;
         var isCircuit = rounds > 1;
         var round = trainState.round;
-        if (isCircuit) {
-          return <Card key={b.id}>
-            <CardHdr left={b.label} right={<span style={badgeStyle(b.zc)}>{b.bpm}</span>} />
-            <div style={{ background: "#f9f9f7", borderBottom: "0.5px solid #eee", padding: "7px 14px", fontSize: 11, color: "#666", display: "flex", alignItems: "center", gap: 6 }}>
-              <span style={{ fontWeight: 500 }}>Round {round + 1} of {rounds}</span>
-              <span style={{ marginLeft: "auto" }}><span style={badgeStyle(b.zc)}>{b.bpm}</span></span>
-            </div>
-            <CircuitScreen b={b} round={round} rounds={rounds} logs={logs} lastSessionSets={lastSessionSets}
-              onLog={function(exIdx, setIdx) { setTrainState(function(ts) { return Object.assign({}, ts, { ei: exIdx, si: setIdx }); }); logSet(b.id, exIdx, setIdx); }}
-              onSkip={function(exIdx, setIdx) { setSkipConfirm({ bk: b.id, ei: exIdx, si: setIdx }); }}
-              updateLog={updateLog} />
-            {skipConfirm && skipConfirm.bk === b.id && <div style={{ margin: "0 16px 16px", background: "#fff7ed", border: "0.5px solid #fcd9a0", borderRadius: 8, padding: "10px 12px", fontSize: 12, color: "#92400e", textAlign: "center" }}>Skip this set?<div style={{ display: "flex", gap: 8, marginTop: 8 }}><button style={{ flex: 1, padding: 7, borderRadius: 6, border: "0.5px solid #fcd9a0", background: "#fff", fontSize: 12, cursor: "pointer" }} onClick={function() { setSkipConfirm(null); }}>Cancel</button><button style={{ flex: 1, padding: 7, borderRadius: 6, border: "none", background: "#1a1a1a", color: "#fff", fontSize: 12, cursor: "pointer" }} onClick={function() { doAdvance(b.id, skipConfirm.ei, skipConfirm.si, true); }}>Yes, skip</button></div></div>}
-          </Card>;
-        }
         var ex = b.exercises[ei]; var log = (logs[ex && ex.id] && logs[ex.id][si]) || {};
+        var globalSi = isCircuit ? round * ex.sets + si : si;
+        var circuitLog = (logs[ex && ex.id] && logs[ex.id][globalSi]) || log;
         // Find last set for this exercise from lastSessionSets
-        var lastRef = lastSessionSets.filter(function(s) { return s.exercise === ex.name && s.set_number === si + 1; })[0] || null;
-        return <Card key={b.id}><CardHdr left={b.label} right={<span style={badgeStyle(b.zc)}>{b.bpm}</span>} /><div style={{ background: "#f9f9f7", borderBottom: "0.5px solid #eee", padding: "7px 14px", fontSize: 11, color: "#666", display: "flex", alignItems: "center", gap: 6 }}>Target HR: <span style={badgeStyle(b.zc)}>{b.bpm}</span></div><SetScreen ex={ex} si={si} log={log} lastRef={lastRef} totalSets={ex.sets} allLogs={logs[ex.id] || []} onLog={function() { logSet(b.id, ei, si); }} onSkip={function() { setSkipConfirm({ bk: b.id, ei: ei, si: si }); }} onSetLog={function(v) { updateLog(ex.id, si, "reps", v); }} onSetWeight={function(v) { updateLog(ex.id, si, "weight", v); }} onSetRir={function(v) { updateLog(ex.id, si, "rir", v); }} />{skipConfirm && skipConfirm.bk === b.id && skipConfirm.ei === ei && skipConfirm.si === si && <div style={{ margin: "0 16px 16px", background: "#fff7ed", border: "0.5px solid #fcd9a0", borderRadius: 8, padding: "10px 12px", fontSize: 12, color: "#92400e", textAlign: "center" }}>Skip this set?<div style={{ display: "flex", gap: 8, marginTop: 8 }}><button style={{ flex: 1, padding: 7, borderRadius: 6, border: "0.5px solid #fcd9a0", background: "#fff", fontSize: 12, cursor: "pointer" }} onClick={function() { setSkipConfirm(null); }}>Cancel</button><button style={{ flex: 1, padding: 7, borderRadius: 6, border: "none", background: "#1a1a1a", color: "#fff", fontSize: 12, cursor: "pointer" }} onClick={function() { doAdvance(b.id, ei, si, true); }}>Yes, skip</button></div></div>}</Card>;
+        var lastRef = lastSessionSets.filter(function(s) { return s.exercise === ex.name && s.set_number === globalSi + 1; })[0] || null;
+        // Circuit subheader: round progress bar + exercise dots
+        var circuitSubhdr = isCircuit ? (
+          <div style={{ background: "#f9f9f7", borderBottom: "0.5px solid #eee", padding: "8px 14px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+              <span style={{ fontSize: 11, color: "#666", fontWeight: 500 }}>Round {round + 1} of {rounds}</span>
+              <span style={{ fontSize: 11, color: "#999" }}>{ei + 1} / {b.exercises.length} exercises</span>
+            </div>
+            <div style={{ display: "flex", gap: 4 }}>
+              {Array.from({ length: rounds }, function(_, i) { return <div key={i} style={{ flex: 1, height: 3, borderRadius: 2, background: i < round ? "#2d7a4f" : i === round ? "#1a1a1a" : "#ddd" }} />; })}
+            </div>
+          </div>
+        ) : (
+          <div style={{ background: "#f9f9f7", borderBottom: "0.5px solid #eee", padding: "7px 14px", fontSize: 11, color: "#666", display: "flex", alignItems: "center", gap: 6 }}>Target HR: <span style={badgeStyle(b.zc)}>{b.bpm}</span></div>
+        );
+        // For circuits use exercise dots spanning all exercises in this round; for straight sets use set dots
+        var progressDots = isCircuit
+          ? b.exercises.map(function(e, i) { var gsi = round * e.sets; var done = logs[e.id] && logs[e.id][gsi] && logs[e.id][gsi].done; var curr = i === ei; return <div key={i} style={{ width: curr ? 12 : 10, height: curr ? 12 : 10, borderRadius: "50%", background: done ? "#2d7a4f" : curr ? "#1a1a1a" : "#ddd", flexShrink: 0 }} />; })
+          : Array.from({ length: ex.sets }, function(_, i) { var st = (logs[ex.id] && logs[ex.id][i] && logs[ex.id][i].done) ? "done" : i === si ? "current" : "idle"; return <div key={i} style={{ width: st === "current" ? 12 : 10, height: st === "current" ? 12 : 10, borderRadius: "50%", background: st === "done" ? "#2d7a4f" : st === "current" ? "#1a1a1a" : "#ddd", flexShrink: 0 }} />; });
+        var progressLabel = isCircuit ? "Exercise " + (ei + 1) + " of " + b.exercises.length : "Set " + (si + 1) + " of " + ex.sets;
+        var logBtnLabel = isCircuit ? "Log — " + ex.name : "Log set " + (si + 1);
+        return <Card key={b.id}>
+          <CardHdr left={b.label} right={<span style={badgeStyle(b.zc)}>{b.bpm}</span>} />
+          {circuitSubhdr}
+          <div style={{ padding: 16 }}>
+            <div style={{ fontSize: 17, fontWeight: 500, marginBottom: 2 }}>{ex.name}</div>
+            <div style={{ fontSize: 12, color: "#888", marginBottom: 6 }}>{ex.equip} · {ex.tempo}</div>
+            <div style={{ fontSize: 12, color: "#555", background: "#f9f9f7", borderLeft: "3px solid #ccc", padding: "7px 10px", borderRadius: "0 6px 6px 0", marginBottom: 14, lineHeight: 1.5 }}>{ex.cue}</div>
+            <div style={{ display: "flex", gap: 6, marginBottom: 14, alignItems: "center" }}>
+              {progressDots}
+              <span style={{ fontSize: 12, color: "#999", marginLeft: 4 }}>{progressLabel}</span>
+            </div>
+            <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 10, color: "#333" }}>Target: {ex.reps}{ex.ru}{ex.kg > 0 ? " · " + ex.kg + " kg" : ""}</div>
+            {lastRef && <div style={{ fontSize: 11, color: "#888", background: "#f0f0ee", borderRadius: 6, padding: "5px 10px", marginBottom: 12 }}>Last: {lastRef.actual_reps || "-"} reps · {lastRef.actual_kg || "-"} kg · {lastRef.rir_score ? RIR_MAP[lastRef.rir_score] : "-"}</div>}
+            {ex.ru === "sec" && <ExTimer reps={ex.reps} />}
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 14 }}>
+              <div><div style={{ fontSize: 11, color: "#999", fontWeight: 500, marginBottom: 4 }}>REPS{ex.ru && ex.ru !== "sec" ? " (" + ex.ru + ")" : ""} COMPLETED</div><Stepper value={circuitLog.reps !== "" ? circuitLog.reps : String(ex.reps)} onChange={function(v) { updateLog(ex.id, globalSi, "reps", v); }} step={1} placeholder={String(ex.reps)} /></div>
+              <div><div style={{ fontSize: 11, color: "#999", fontWeight: 500, marginBottom: 4 }}>WEIGHT (KG)</div><Stepper value={circuitLog.weight !== "" ? circuitLog.weight : (ex.kg > 0 ? String(ex.kg) : "")} onChange={function(v) { updateLog(ex.id, globalSi, "weight", v); }} step={0.5} placeholder={ex.kg > 0 ? String(ex.kg) : "kg"} /></div>
+            </div>
+            <div style={{ fontSize: 11, color: "#999", fontWeight: 500, marginBottom: 8 }}>EFFORT (RESERVE)</div>
+            <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
+              {RIR_LABELS.map(function(r) { return <div key={r.val} style={rirOptStyle(r.val, circuitLog.rir === r.val)} onClick={function() { updateLog(ex.id, globalSi, "rir", r.val); }}><div style={{ fontSize: 12, fontWeight: 500 }}>{r.label}</div><div style={{ fontSize: 9, color: circuitLog.rir === r.val ? "inherit" : "#999", marginTop: 2 }}>{r.sub}</div></div>; })}
+            </div>
+            <button style={{ width: "100%", padding: 13, background: "#1a1a1a", color: "#fff", border: "none", borderRadius: 10, fontSize: 15, fontWeight: 500, cursor: "pointer", marginBottom: 10 }} onClick={function() { logSet(b.id, ei, si); }}>{logBtnLabel}</button>
+            <button style={{ width: "100%", padding: 7, background: "#fff", color: "#aaa", border: "0.5px solid #e0e0e0", borderRadius: 8, fontSize: 12, cursor: "pointer" }} onClick={function() { setSkipConfirm({ bk: b.id, ei: ei, si: si }); }}>Skip</button>
+            {skipConfirm && skipConfirm.bk === b.id && skipConfirm.ei === ei && skipConfirm.si === si && <div style={{ marginTop: 10, background: "#fff7ed", border: "0.5px solid #fcd9a0", borderRadius: 8, padding: "10px 12px", fontSize: 12, color: "#92400e", textAlign: "center" }}>Skip this set?<div style={{ display: "flex", gap: 8, marginTop: 8 }}><button style={{ flex: 1, padding: 7, borderRadius: 6, border: "0.5px solid #fcd9a0", background: "#fff", fontSize: 12, cursor: "pointer" }} onClick={function() { setSkipConfirm(null); }}>Cancel</button><button style={{ flex: 1, padding: 7, borderRadius: 6, border: "none", background: "#1a1a1a", color: "#fff", fontSize: 12, cursor: "pointer" }} onClick={function() { doAdvance(b.id, ei, si, true); }}>Yes, skip</button></div></div>}
+          </div>
+        </Card>;
       })}
       {phase === "complete" && <Card><CardHdr left="Session complete" /><div style={{ padding: 16, textAlign: "center" }}><div style={{ fontSize: 40, marginBottom: 12 }}>✓</div>{dur && <div style={{ fontSize: 13, color: "#888", marginBottom: 8 }}>Duration: {dur} min</div>}<SyncStatus status={syncStatus} /><ActionBtn onClick={function() { setPhase("summary"); }}>View summary</ActionBtn></div></Card>}
       {phase === "summary" && session && <TrainingSummary session={session} logs={logs} wl={wl} estDur={estDur} dur={dur} buildCSV={buildCSV} syncStatus={syncStatus} />}
