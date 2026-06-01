@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<title>Gym Fra</title>
+<title>GymFra V2</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
@@ -226,7 +226,7 @@ function calcWeeklySummary(weekSessions, weeklyRow) {
 }
 
 // ── DASHBOARD ─────────────────────────────────────────────────
-function Dashboard({ config, todayLogs, calGoal, carbGoal, fatGoal, isTrainingDay, weekSessions, weeklyRow, onTabChange, weeklySummaryLogs, activities, tabColor, tabBg }) {
+function Dashboard({ config, todayLogs, calGoal, carbGoal, fatGoal, isTrainingDay, weekSessions, weeklyRow, onTabChange, weeklySummaryLogs, activities, allSessions, dailySummaryLogs, tabColor, tabBg }) {
   var totals = todayLogs.reduce(function(a, e) { return { cal: a.cal + (e.calories||e.cal||0), protein: a.protein + (e.protein||0), carbs: a.carbs + (e.carbs||0), fat: a.fat + (e.fat||0) }; }, { cal: 0, protein: 0, carbs: 0, fat: 0 });
   var remaining = calGoal - totals.cal;
   var last = weekSessions.length > 0 ? weekSessions[weekSessions.length - 1] : null;
@@ -247,55 +247,116 @@ function Dashboard({ config, todayLogs, calGoal, carbGoal, fatGoal, isTrainingDa
         </div>
       </Card>
       <Card>
-        <CardHdr color={tabColor} left="Dashboard" right={<span style={{ fontSize: 11, color: "#444" }}>{weekly.daysLogged || 0} / 7 days logged</span>} />
+        <CardHdr color={tabColor} left="Dashboard" right={<span style={{ fontSize: 11, color: "#444" }}>Last 7 days</span>} />
         <div style={{ padding: 14 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
-            {(function() {
-              var prevWkKey = (function() {
-                var parts = getWeekKey(todayISO()).split("_W");
-                var yr = parseInt(parts[0]), wn = parseInt(parts[1]);
-                return wn === 1 ? (yr - 1) + "_W52" : yr + "_W" + String(wn - 1).padStart(2, "0");
-              })();
-              var prevWeekly = weeklyRow ? null : null; // weeklyRow is current, we need prev from weeklySummaryLogs
-              var eatOutPct = weekly.totalMeals > 0 ? Math.round((weekly.eatOutMeals / weekly.totalMeals) * 100) : null;
-              var prevWr = weeklySummaryLogs[prevWkKey];
-              var prevEatOutPct = prevWr && prevWr.total_meals > 0 ? Math.round((prevWr.eat_out_meals / prevWr.total_meals) * 100) : null;
-              var eatOutColor = eatOutPct === null ? "#aaa" : prevEatOutPct === null ? "#1a1a1a" : eatOutPct <= prevEatOutPct ? "#166534" : "#dc2626";
-              var activityCount = activities.filter(function(a) { var wkStart = getWeekStart(todayISO()); var wkEnd = (function() { var d = new Date(wkStart + "T12:00:00"); d.setDate(d.getDate() + 6); return d.toISOString().slice(0, 10); })(); return a.date >= wkStart && a.date <= wkEnd; }).length;
-              var totalActivities = (weekly.sessions || 0) + activityCount;
-              var proteinDaysHit = weekly.proteinCompliance !== null && weekly.daysLogged ? Math.round(weekly.proteinCompliance / 100 * weekly.daysLogged) : null;
-              var balanceColor = !weekly.avgBalance ? "#aaa" : weekly.avgBalance < -600 ? "#dc2626" : weekly.avgBalance < 0 ? "#166534" : "#dc2626";
-              return [
-                { label: "Avg energy balance", value: weekly.avgBalance ? weekly.avgBalance + " kcal" : "-", color: balanceColor },
-                { label: "Sessions & activities", value: totalActivities, color: "#1a1a1a" },
-                { label: "Eat-out meals", value: eatOutPct !== null ? eatOutPct + "%" : "-", color: eatOutColor },
-                { label: "Avg protein", value: weekly.avgProtein ? weekly.avgProtein + "g" : "-", color: "#1a1a1a" },
-                { label: "Protein goal hit", value: proteinDaysHit !== null ? proteinDaysHit + " / " + weekly.daysLogged + " days" : "-", color: "#1a1a1a" },
-              ].map(function(item) {
-                return <div key={item.label} style={{ background: tabBg, borderRadius: 8, padding: "8px 10px", textAlign: "center", border: "1px solid " + tabColor + "22" }}>
-                  <div style={{ fontSize: 15, fontWeight: 600, color: item.color === "#1a1a1a" || item.color === "#f0ede8" ? "#f0ede8" : item.color }}>{item.value}</div>
-                  <div style={{ fontSize: 10, color: "#444" }}>{item.label}</div>
-                </div>;
-              });
-            })()}
-          </div>
-          {weekly.daysLogged >= 3
-            ? <div><ActionBtn secondary onClick={handleWeeklyReport} disabled={reportLoading} tabColor={tabColor}>{reportLoading ? "Generating..." : "Generate weekly report"}</ActionBtn>{reportErr && <div style={{ fontSize: 12, color: "#dc2626", marginTop: 6 }}>{reportErr}</div>}{weeklyReport && <div style={{ fontSize: 13, color: "#333", background: "#f9f9f7", borderRadius: 8, padding: 12, marginTop: 8, lineHeight: 1.6 }}>{weeklyReport}</div>}</div>
-            : <div style={{ fontSize: 11, color: "#444", textAlign: "center" }}>Log at least 3 days to generate weekly report</div>}
-        </div>
-      </Card>
-      <Card>
-        <CardHdr color={tabColor} left="Dashboard" />
-        <div style={{ padding: 14 }}>
-          {last
-            ? <div><div style={{ fontSize: 14, fontWeight: 500, marginBottom: 4 }}>{last.title}</div><div style={{ fontSize: 12, color: "#888", marginBottom: 10 }}>{last.date}{last.actual_duration ? " · " + last.actual_duration + " min" : ""}</div><div style={{ display: "flex", gap: 12 }}>{[["difficulty kg", last.difficulty_kg || "-"], ["completion", (last.completion_pct || "-") + "%"]].map(function(item) { return <div key={item[0]} style={{ flex: 1, background: tabBg, borderRadius: 8, padding: "8px 10px", textAlign: "center", border: "1px solid " + tabColor + "22" }}><div style={{ fontSize: 18, fontWeight: 600, color: "#f0ede8" }}>{item[1]}</div><div style={{ fontSize: 10, color: "#444" }}>{item[0]}</div></div>; })}</div></div>
-            : <div style={{ textAlign: "center", padding: "20px 0" }}><div style={{ fontSize: 13, color: "#444", marginBottom: 12 }}>No sessions this week.</div><ActionBtn secondary onClick={function() { onTabChange("training"); }} tabColor={tabColor}>Go to Training</ActionBtn></div>}
-        </div>
-      </Card>
-      <Card>
-        <CardHdr color={tabColor} left="Dashboard" right={<span style={{ fontSize: 11, color: "#aaa" }}>{config.athlete.scanDate}</span>} />
-        <div style={{ padding: 14 }}>
-          {[["Weight", config.athlete.weight + " kg"], ["SMM", config.athlete.smm + " kg"], ["Body Fat", config.athlete.bf + "%"], ["Phase", config.goals.phase], ["Target", config.goals.targetWeight + " kg"]].map(function(item) { return <div key={item[0]} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "4px 0", borderBottom: "0.5px solid #f0f0f0" }}><span style={{ color: "#888" }}>{item[0]}</span><span style={{ fontWeight: 500 }}>{item[1]}</span></div>; })}
+          {(function() {
+            // Build last 7 days array
+            var days7 = Array.from({ length: 7 }, function(_, i) {
+              var d = new Date(); d.setDate(d.getDate() - 6 + i);
+              return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+            });
+            var data7 = days7.map(function(iso) { return dailySummaryLogs[iso] || null; });
+            var hasSess = function(iso) { return allSessions.some(function(s) { return s.date === iso; }) || activities.some(function(a) { return a.date === iso; }); };
+
+            // Stat computations
+            var balVals = data7.map(function(d) { return d && d.energy_balance != null ? d.energy_balance : null; }).filter(function(v) { return v !== null; });
+            var protVals = data7.map(function(d) { return d && d.protein ? d.protein : null; }).filter(function(v) { return v !== null; });
+            var weightVals = data7.map(function(d) { return d && d.bodyweight ? d.bodyweight : null; }).filter(function(v) { return v !== null; });
+            var bfVals = data7.map(function(d) { return d && d.body_fat ? d.body_fat : null; }).filter(function(v) { return v !== null; });
+            var sessCount = days7.filter(hasSess).length;
+            var avgBal = balVals.length ? Math.round(balVals.reduce(function(a,b){return a+b;},0)/balVals.length) : null;
+            var avgProt = protVals.length ? Math.round(protVals.reduce(function(a,b){return a+b;},0)/protVals.length) : null;
+            var latestWeight = weightVals.length ? weightVals[weightVals.length-1] : null;
+            var latestBf = bfVals.length ? bfVals[bfVals.length-1] : null;
+
+            // Chart: energy balance line over 7 days
+            var chartW = 280; var chartH = 72; var midY = chartH / 2;
+            var maxAbs = balVals.length ? Math.max.apply(null, [600].concat(balVals.map(Math.abs))) : 600;
+            var pts = days7.map(function(iso, i) {
+              var d = dailySummaryLogs[iso];
+              var v = d && d.energy_balance != null ? d.energy_balance : 0;
+              var x = (i / 6) * chartW;
+              var y = midY - (v / maxAbs) * (midY - 6);
+              return { x: x, y: y, v: v, iso: iso, hasData: !!(d && d.energy_balance != null) };
+            });
+            var polyline = pts.filter(function(p){return p.hasData;}).map(function(p){return p.x+","+p.y;}).join(" ");
+            var labels = days7.map(function(iso) {
+              var d = new Date(iso+"T12:00:00"); var day = d.getDay();
+              return ["Su","Mo","Tu","We","Th","Fr","Sa"][day];
+            });
+
+            var balColor = avgBal === null ? "#555" : avgBal < 0 ? "#4caf7d" : "#e05050";
+            var protColor = avgProt === null ? "#555" : avgProt >= 170 ? "#4caf7d" : avgProt >= 150 ? "#e8a040" : "#e05050";
+
+            return (
+              <div>
+                
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 14 }}>
+                  <div style={{ background: tabBg, borderRadius: 8, padding: "8px 10px", textAlign: "center", border: "1px solid " + tabColor + "22" }}>
+                    <div style={{ fontSize: 17, fontWeight: 700, color: balColor, lineHeight: 1.1 }}>{avgBal !== null ? (avgBal > 0 ? "+" : "") + avgBal + " kcal" : "—"}</div>
+                    <div style={{ fontSize: 9, color: "#444", marginTop: 3 }}>avg balance</div>
+                  </div>
+                  <div style={{ background: tabBg, borderRadius: 8, padding: "8px 10px", textAlign: "center", border: "1px solid " + tabColor + "22" }}>
+                    <div style={{ fontSize: 17, fontWeight: 700, color: protColor, lineHeight: 1.1 }}>{avgProt !== null ? avgProt + "g" : "—"}</div>
+                    <div style={{ fontSize: 9, color: "#444", marginTop: 3 }}>avg protein</div>
+                  </div>
+                  <div style={{ background: tabBg, borderRadius: 8, padding: "8px 10px", textAlign: "center", border: "1px solid " + tabColor + "22" }}>
+                    <div style={{ fontSize: 17, fontWeight: 700, color: "#f0ede8", lineHeight: 1.1 }}>{sessCount}</div>
+                    <div style={{ fontSize: 9, color: "#444", marginTop: 3 }}>sessions</div>
+                  </div>
+                  <div style={{ background: tabBg, borderRadius: 8, padding: "8px 10px", textAlign: "center", border: "1px solid " + tabColor + "22" }}>
+                    <div style={{ fontSize: 17, fontWeight: 700, color: "#f0ede8", lineHeight: 1.1 }}>{latestWeight !== null ? latestWeight + " kg" : "—"}{latestBf !== null ? <span style={{ fontSize: 11, color: "#555", fontWeight: 400 }}> · {latestBf}%</span> : null}</div>
+                    <div style={{ fontSize: 9, color: "#444", marginTop: 3 }}>weight · bf%</div>
+                  </div>
+                </div>
+
+                
+                <div style={{ marginBottom: 4 }}>
+                  <div style={{ fontSize: 10, color: "#444", fontWeight: 600, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 6 }}>Energy balance</div>
+                  <svg width="100%" height="88" viewBox={"0 0 " + chartW + " 88"} preserveAspectRatio="none" overflow="visible">
+                    
+                    <line x1="0" y1={midY} x2={chartW} y2={midY} stroke="#2a2a2a" strokeWidth="1" />
+                    
+                    {pts.filter(function(p){return p.hasData;}).map(function(p, i) {
+                      var isDeficit = p.v < 0;
+                      return <line key={i} x1={p.x} y1={Math.min(p.y, midY)} x2={p.x} y2={Math.max(p.y, midY)}
+                        stroke={isDeficit ? "#4caf7d" : "#e05050"} strokeWidth="2" strokeOpacity="0.3" />;
+                    })}
+                    
+                    {polyline && <polyline points={polyline} fill="none" stroke={tabColor} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />}
+                    
+                    {pts.map(function(p, i) {
+                      if (!p.hasData) return null;
+                      var isDeficit = p.v < 0;
+                      return <circle key={i} cx={p.x} cy={p.y} r="4" fill={isDeficit ? "#4caf7d" : "#e05050"} stroke="#1c1c1c" strokeWidth="1.5" />;
+                    })}
+                    
+                    {days7.map(function(iso, i) {
+                      if (!hasSess(iso)) return null;
+                      var x = (i/6)*chartW;
+                      return <rect key={i} x={x-8} y={chartH+2} width={16} height={4} rx="2" fill={tabColor} opacity="0.6" />;
+                    })}
+                    
+                    {labels.map(function(lbl, i) {
+                      var x = (i/6)*chartW;
+                      return <text key={i} x={x} y={chartH+16} textAnchor="middle" fontSize="9" fill="#444">{lbl}</text>;
+                    })}
+                  </svg>
+                </div>
+                <div style={{ display: "flex", gap: 12, marginTop: 2 }}>
+                  <span style={{ fontSize: 9, color: "#4caf7d" }}>● Deficit</span>
+                  <span style={{ fontSize: 9, color: "#e05050" }}>● Surplus</span>
+                  <span style={{ fontSize: 9, color: tabColor }}>— Balance line</span>
+                  <span style={{ fontSize: 9, color: tabColor, opacity: 0.6 }}>▬ Session</span>
+                </div>
+                <div style={{ marginTop: 14 }}>
+                  <ActionBtn secondary onClick={handleWeeklyReport} disabled={reportLoading} tabColor={tabColor}>{reportLoading ? "Generating..." : "Generate weekly report"}</ActionBtn>
+                  {reportErr && <div style={{ fontSize: 12, color: "#e05050", marginTop: 6 }}>{reportErr}</div>}
+                  {weeklyReport && <div style={{ fontSize: 13, color: "#888", background: "#161616", borderRadius: 8, padding: 12, marginTop: 8, lineHeight: 1.6, border: "1px solid #222" }}>{weeklyReport}</div>}
+                </div>
+              </div>
+            );
+          })()}
         </div>
       </Card>
     </div>
@@ -1518,7 +1579,7 @@ async function upsertDailySummaryForDate(date) {
 
   if (loading) return (
     <div style={{ fontFamily: "system-ui,sans-serif", background: "#111", minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-      <div style={{ fontSize: 20, fontWeight: 500, marginBottom: 24 }}>Gym Fra</div>
+      <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 24, color: "#f0ede8" }}>GymFra <span style={{ color: "#444", fontSize: 13, fontWeight: 500 }}>V2</span></div>
       <Loader />
     </div>
   );
@@ -1536,14 +1597,14 @@ async function upsertDailySummaryForDate(date) {
   return (
     <div style={{ fontFamily: "system-ui,sans-serif", background: "#111", color: "#f0ede8", minHeight: "100vh", maxWidth: 480, margin: "0 auto", paddingBottom: 70 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 14px 8px", background: "#111", borderBottom: "1px solid #1a1a1a" }}>
-        <div style={{ fontSize: 20, fontWeight: 700, color: "#f0ede8", letterSpacing: "-.01em" }}>Gym Fra</div>
+        <div style={{ fontSize: 20, fontWeight: 700, color: "#f0ede8", letterSpacing: "-.01em" }}>GymFra <span style={{ color: "#444", fontSize: 13, fontWeight: 500, letterSpacing: 0 }}>V2</span></div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <span style={{ fontSize: 11, color: "#444" }}>{config.athlete.weight} kg · {config.athlete.bf}% BF</span>
           <button style={{ background: "none", border: "1px solid #2a2a2a", borderRadius: 8, padding: "5px 10px", cursor: "pointer", fontSize: 13, color: "#555" }} onClick={function() { setShowSettings(true); }}>settings</button>
         </div>
       </div>
       <div style={{ padding: "0 12px 12px" }}>
-      {tab === "dashboard" && <Dashboard config={config} todayLogs={todayLogs} calGoal={calGoal} carbGoal={carbGoal} fatGoal={fatGoal} isTrainingDay={isTrainingDay} weekSessions={weekSessions} weeklyRow={weeklyRow} onTabChange={setTab} weeklySummaryLogs={weeklySummaryLogs} activities={activities} tabColor={tabColor} tabBg={tabBg} />}      {tab === "nutrition" && <NutritionTab config={config} todayLogs={todayLogs} onAddMeal={handleAddMeal} onDeleteMeal={handleDeleteMeal} isTrainingDay={isTrainingDay} calOverride={calOverrideToday}  tabColor={tabColor} tabBg={tabBg} />}
+      {tab === "dashboard" && <Dashboard config={config} todayLogs={todayLogs} calGoal={calGoal} carbGoal={carbGoal} fatGoal={fatGoal} isTrainingDay={isTrainingDay} weekSessions={weekSessions} weeklyRow={weeklyRow} onTabChange={setTab} weeklySummaryLogs={weeklySummaryLogs} activities={activities} allSessions={allSessions} dailySummaryLogs={dailySummaryLogs} tabColor={tabColor} tabBg={tabBg} />}      {tab === "nutrition" && <NutritionTab config={config} todayLogs={todayLogs} onAddMeal={handleAddMeal} onDeleteMeal={handleDeleteMeal} isTrainingDay={isTrainingDay} calOverride={calOverrideToday}  tabColor={tabColor} tabBg={tabBg} />}
       {tab === "training" && <TrainingTab config={config} onSessionSaved={handleSessionSaved} lastSessionSets={lastSessionSets}  tabColor={tabColor} tabBg={tabBg} />}
       {tab === "calendar" && <CalendarTab config={config} burnLogs={burnLogs} onSaveBurn={handleSaveBurn} weekSessions={weekSessions} allSessions={allSessions} activities={activities} omronLogs={omronLogs} onSaveOmron={handleSaveOmron} dailySummaryLogs={dailySummaryLogs} weeklySummaryLogs={weeklySummaryLogs}  tabColor={tabColor} tabBg={tabBg} />}
       {showSettings && <SettingsPanel config={config} onSave={handleConfigSave} onClose={function() { setShowSettings(false); }} onPatch={handlePatch} />}
