@@ -13,6 +13,37 @@ body { background: #f5f5f3; font-family: system-ui, sans-serif; color: #1a1a1a; 
 input, select, textarea, button { font-family: inherit; }
 input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
 @keyframes spin { to { transform: rotate(360deg); } }
+/* ── Chalk & Iron training theme ── */
+.ci-wrap { background: #111; border-radius: 14px; overflow: hidden; margin-bottom: 12px; }
+.ci-card { background: #1c1c1c; border: 1px solid #2a2a2a; border-radius: 14px; margin-bottom: 12px; overflow: hidden; }
+.ci-hdr { background: #1c1c1c; color: #f0ede8; padding: 10px 14px; font-size: 13px; font-weight: 600; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #2a2a2a; }
+.ci-badge { font-size: 11px; padding: 3px 9px; border-radius: 20px; font-weight: 600; background: #2a2010; color: #e8a040; border: 1px solid #4a3010; }
+.ci-progress { padding: 10px 14px 12px; background: #161616; border-bottom: 1px solid #222; }
+.ci-progress-row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }
+.ci-progress-lbl { font-size: 10px; color: #444; text-transform: uppercase; letter-spacing: .08em; font-weight: 600; }
+.ci-progress-val { font-size: 10px; color: #555; font-weight: 500; }
+.ci-progress-track { height: 2px; background: #252525; border-radius: 2px; margin-bottom: 10px; overflow: hidden; }
+.ci-progress-track:last-child { margin-bottom: 0; }
+.ci-progress-fill { height: 100%; border-radius: 2px; transition: width 0.4s ease; }
+.ci-set-dot { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; border: 1.5px solid #333; background: transparent; display: inline-block; }
+.ci-set-dot.done { border-color: #4caf7d; background: #0d2018; }
+.ci-set-dot.current { border-color: #f0ede8; }
+.ci-set-dot.idle { border-color: #333; }
+.ci-tile { border: 2px solid #333; border-radius: 12px; display: flex; flex-direction: column; align-items: stretch; overflow: hidden; background: #1c1c1c; }
+.ci-tile-btn { width: 100%; padding: 13px 0; border: none; background: #252525; cursor: pointer; font-size: 22px; color: #888; line-height: 1; transition: background 0.15s, color 0.15s; }
+.ci-tile-mid { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 14px 8px 10px; background: #1c1c1c; }
+.ci-tile-num { font-size: 40px; font-weight: 600; color: #f0ede8; line-height: 1; text-align: center; cursor: text; min-width: 50px; }
+.ci-tile-input { font-size: 40px; font-weight: 600; color: #f0ede8; line-height: 1; text-align: center; width: 100%; border: none; background: transparent; outline: none; display: none; -webkit-appearance: none; }
+.ci-tile-label { font-size: 11px; color: #555; font-weight: 500; margin-top: 6px; text-align: center; text-transform: uppercase; letter-spacing: .06em; }
+.ci-rir-opt { flex: 1; padding: 12px 4px; border-radius: 8px; border: 1px solid #2a2a2a; background: #1c1c1c; text-align: center; cursor: pointer; font-size: 13px; font-weight: 500; color: #666; }
+.ci-rir-opt.on-4 { border-color: #4caf7d; background: #0d2018; color: #4caf7d; }
+.ci-rir-opt.on-3 { border-color: #4a90d9; background: #0d1a2a; color: #4a90d9; }
+.ci-rir-opt.on-2 { border-color: #e8a040; background: #2a1a00; color: #e8a040; }
+.ci-rir-opt.on-1 { border-color: #e05050; background: #2a0d0d; color: #e05050; }
+.ci-btn-log { width: 100%; padding: 15px; background: #e8a040; color: #111; border: none; border-radius: 10px; font-size: 15px; font-weight: 700; cursor: pointer; margin-bottom: 10px; letter-spacing: .02em; }
+.ci-btn-skip { width: 100%; padding: 8px; background: transparent; color: #444; border: 1px solid #222; border-radius: 8px; font-size: 12px; cursor: pointer; }
+.ci-cue { font-size: 12px; color: #666; border-left: 3px solid #e8a040; padding: 6px 10px; margin-bottom: 6px; line-height: 1.5; }
+.ci-up-next { background: #1e1e1e; border-radius: 10px; border: 1px solid #2a2a2a; padding: 12px 14px; margin-bottom: 16px; text-align: left; }
 </style>
 </head>
 <body>
@@ -270,17 +301,36 @@ function Dashboard({ config, todayLogs, calGoal, carbGoal, fatGoal, isTrainingDa
 
 // ── EXERCISE TIMER ────────────────────────────────────────────
 var ExTimer = memo(function ExTimer({ reps }) {
-  var [rem, setRem] = useState(reps); var ref = useRef(null);
-  function start() { if (ref.current) clearInterval(ref.current); var r = reps; setRem(r); ref.current = setInterval(function() { r--; setRem(r); if (r <= 0) { clearInterval(ref.current); beep(); } }, 1000); }
-  function reset() { if (ref.current) clearInterval(ref.current); setRem(reps); }
-  useEffect(function() { return function() { if (ref.current) clearInterval(ref.current); }; }, []);
+  var [rem, setRem] = useState(reps);
+  var [running, setRunning] = useState(false);
+  var [wasReset, setWasReset] = useState(false);
+  var ref = useRef(null);
+  // Auto-start on mount
+  useEffect(function() {
+    startTimer();
+    return function() { if (ref.current) clearInterval(ref.current); };
+  }, []);
+  function startTimer() {
+    if (ref.current) clearInterval(ref.current);
+    var r = reps; setRem(r); setRunning(true); setWasReset(false);
+    ref.current = setInterval(function() { r--; setRem(r); if (r <= 0) { clearInterval(ref.current); setRunning(false); beep(); } }, 1000);
+  }
+  function reset() {
+    if (ref.current) clearInterval(ref.current);
+    setRem(reps); setRunning(false); setWasReset(true);
+  }
+  var pct = Math.round((1 - rem / reps) * 100);
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", background: "#f9f9f7", border: "0.5px solid #eee", borderRadius: 10, padding: 14, marginBottom: 14 }}>
-      <div style={{ fontSize: 11, color: "#999", fontWeight: 500, marginBottom: 6 }}>EXERCISE TIMER</div>
-      <div style={{ fontSize: 56, fontWeight: 500, lineHeight: 1 }}>{fmtTime(rem)}</div>
-      <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-        <button style={{ padding: "8px 20px", borderRadius: 20, border: "0.5px solid #ccc", background: "#fff", fontSize: 13, cursor: "pointer" }} onClick={start}>Start</button>
-        <button style={{ padding: "8px 20px", borderRadius: 20, border: "0.5px solid #ccc", background: "#fff", fontSize: 13, cursor: "pointer" }} onClick={reset}>Reset</button>
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", background: "#161616", border: "1px solid #222", borderRadius: 12, padding: 20, marginBottom: 14 }}>
+      <div style={{ fontSize: 60, fontWeight: 600, lineHeight: 1, color: "#f0ede8", marginBottom: 12 }}>{fmtTime(rem)}</div>
+      <div style={{ width: "100%", marginBottom: 12 }}>
+        <div style={{ height: 3, background: "#252525", borderRadius: 2, overflow: "hidden" }}>
+          <div style={{ height: "100%", borderRadius: 2, background: "#e8a040", width: pct + "%", transition: "width 0.9s linear" }} />
+        </div>
+      </div>
+      <div style={{ display: "flex", gap: 8 }}>
+        <button style={{ padding: "8px 20px", borderRadius: 20, border: "1px solid #333", background: "transparent", color: "#888", fontSize: 13, cursor: "pointer" }} onClick={reset}>Reset</button>
+        {wasReset && !running && <button style={{ padding: "8px 20px", borderRadius: 20, border: "1px solid #e8a040", background: "transparent", color: "#e8a040", fontSize: 13, cursor: "pointer" }} onClick={startTimer}>Start</button>}
       </div>
     </div>
   );
@@ -315,18 +365,40 @@ var SetScreen = memo(function SetScreen({ ex, si, log, lastRef, onLog, onSkip, o
 });
 
 // ── REST SCREEN ───────────────────────────────────────────────
-var RestScreen = memo(function RestScreen({ restRem, nextLabel, nextEx, restKey, hrInputRefs, onSkip }) {
+var RestScreen = memo(function RestScreen({ restRem, restTotal, nextLabel, nextEx, restKey, hrInputRefs, onSkip }) {
+  var arcRef = useRef(null);
+  var pct = restTotal > 0 ? restRem / restTotal : 1;
+  useEffect(function() {
+    var c = arcRef.current; if (!c) return;
+    var ctx = c.getContext("2d"), cx = 70, cy = 70, r = 58, lw = 9;
+    ctx.clearRect(0, 0, 140, 140);
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.strokeStyle = "#252525"; ctx.lineWidth = lw; ctx.stroke();
+    if (pct > 0) {
+      ctx.beginPath(); ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + pct * Math.PI * 2);
+      ctx.strokeStyle = "#e8a040"; ctx.lineWidth = lw; ctx.lineCap = "round"; ctx.stroke();
+    }
+  });
   return (
-    <div style={{ padding: "24px 14px", textAlign: "center" }}>
-      <div style={{ fontSize: 13, color: "#888", marginBottom: 8 }}>Rest</div>
-      <div style={{ fontSize: 64, fontWeight: 500, marginBottom: 4, color: "#1a1a1a" }}>{fmtTime(restRem)}</div>
-      <div style={{ fontSize: 12, color: "#aaa", marginBottom: 12 }}>{nextLabel} up next</div>
-      {nextEx && <div style={{ background: "#f5f5f3", borderRadius: 10, padding: "12px 14px", marginBottom: 16, textAlign: "left" }}><div style={{ fontSize: 11, color: "#999", fontWeight: 500, marginBottom: 4 }}>UP NEXT</div><div style={{ fontSize: 15, fontWeight: 500, marginBottom: 2 }}>{nextEx.name}</div><div style={{ fontSize: 13, color: "#2d7a4f", fontWeight: 500 }}>{nextEx.kg > 0 ? nextEx.kg + " kg" : "Bodyweight"}{nextEx.ru ? " " + nextEx.ru : ""}</div></div>}
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16, background: "#f9f9f7", borderRadius: 8, padding: "10px 12px" }}>
-        <div style={{ fontSize: 12, color: "#888", flex: 1 }}>Peak HR (optional)</div>
-        <input type="number" style={{ width: 72, padding: 6, border: "0.5px solid #ccc", borderRadius: 6, fontSize: 16, fontWeight: 500, textAlign: "center", background: "#fff" }} placeholder="bpm" inputMode="numeric" ref={function(el) { hrInputRefs.current[restKey] = el; }} onClick={function(e) { e.target.select(); }} />
+    <div style={{ padding: "20px 14px", textAlign: "center", background: "#1c1c1c" }}>
+      <div style={{ fontSize: 11, color: "#444", marginBottom: 12, textTransform: "uppercase", letterSpacing: ".1em" }}>Rest</div>
+      <div style={{ position: "relative", width: 140, height: 140, margin: "0 auto 16px" }}>
+        <canvas ref={arcRef} width="140" height="140" />
+        <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)" }}>
+          <div style={{ fontSize: 36, fontWeight: 600, color: "#f0ede8", lineHeight: 1 }}>{fmtTime(restRem)}</div>
+          <div style={{ fontSize: 11, color: "#555", textAlign: "center", marginTop: 2 }}>remaining</div>
+        </div>
       </div>
-      <button style={{ padding: "10px 28px", borderRadius: 20, border: "0.5px solid #ccc", background: "#fff", fontSize: 13, cursor: "pointer" }} onClick={onSkip}>Skip rest</button>
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ fontSize: 10, color: "#444", fontWeight: 600, marginBottom: 8, textTransform: "uppercase", letterSpacing: ".08em" }}>Peak HR</div>
+        <input type="number" style={{ width: 120, padding: 12, border: "1px solid #2a2a2a", borderRadius: 10, fontSize: 22, fontWeight: 600, textAlign: "center", background: "#252525", color: "#f0ede8" }} placeholder="bpm" inputMode="numeric" ref={function(el) { hrInputRefs.current[restKey] = el; }} onClick={function(e) { e.target.select(); }} />
+      </div>
+      <div className="ci-up-next">
+        <div style={{ fontSize: 10, color: "#444", fontWeight: 600, marginBottom: 6, textTransform: "uppercase", letterSpacing: ".08em" }}>Up next</div>
+        <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 2, color: "#f0ede8" }}>{nextEx ? nextEx.name : nextLabel}</div>
+        {nextEx && <div style={{ fontSize: 13, color: "#e8a040", fontWeight: 500 }}>{nextEx.kg > 0 ? nextEx.kg + " kg" : "Bodyweight"}{nextEx.ru ? " · " + nextEx.ru : ""}</div>}
+        {!nextEx && <div style={{ fontSize: 12, color: "#555" }}>{nextLabel}</div>}
+      </div>
+      <button style={{ padding: "10px 28px", borderRadius: 20, border: "1px solid #2a2a2a", background: "transparent", color: "#444", fontSize: 13, cursor: "pointer" }} onClick={onSkip}>Skip rest</button>
     </div>
   );
 });
@@ -367,6 +439,40 @@ function TrainingSummary({ session, logs, wl, estDur, dur, buildCSV, syncStatus 
 }
 
 
+
+// ── CHALK & IRON HELPERS ──────────────────────────────────────
+function CiTile({ id, value, label, step, onChange }) {
+  var [editing, setEditing] = useState(false);
+  var v = parseFloat(value) || 0;
+  function flash(btn, isPlus) {
+    btn.style.background = isPlus ? "#0d2018" : "#2a0d0d";
+    btn.style.color = isPlus ? "#4caf7d" : "#e05050";
+    setTimeout(function() { btn.style.background = ""; btn.style.color = ""; }, 180);
+  }
+  return (
+    <div className="ci-tile">
+      <button className="ci-tile-btn" onClick={function(e) { onChange(String(Math.max(0, Math.round((v - step) * 100) / 100))); flash(e.currentTarget, false); }}>−</button>
+      <div className="ci-tile-mid">
+        {!editing
+          ? <div className="ci-tile-num" onClick={function() { setEditing(true); }}>{value || "0"}</div>
+          : <input type="number" className="ci-tile-input" style={{ display: "block" }} defaultValue={value} autoFocus
+              onBlur={function(e) { onChange(e.target.value || "0"); setEditing(false); }}
+              onChange={function(e) { onChange(e.target.value); }} />}
+        <div className="ci-tile-label">{label}</div>
+      </div>
+      <button className="ci-tile-btn" onClick={function(e) { onChange(String(Math.round((v + step) * 100) / 100)); flash(e.currentTarget, true); }}>+</button>
+    </div>
+  );
+}
+function CiCueBlock({ cue }) {
+  var [visible, setVisible] = useState(true);
+  return (
+    <div style={{ marginBottom: 16 }}>
+      {visible && <div className="ci-cue">{cue}</div>}
+      <button style={{ fontSize: 11, color: "#555", background: "none", border: "none", cursor: "pointer", padding: 0, marginTop: visible ? 4 : 0 }} onClick={function() { setVisible(function(v) { return !v; }); }}>{visible ? "hide cue" : "show cue"}</button>
+    </div>
+  );
+}
 
 // ── TRAINING TAB ──────────────────────────────────────────────
 function TrainingTab({ config, onSessionSaved, lastSessionSets }) {
@@ -586,63 +692,78 @@ function TrainingTab({ config, onSessionSaved, lastSessionSets }) {
       {session && session.blocks.map(function(b) {
         if (phase !== b.id) return null;
         var bk = trainState.bk, ei = trainState.ei, si = trainState.si;
-        if (resting && resting.bk === b.id) return <Card key={b.id}><CardHdr left={b.label} right={<span style={badgeStyle(b.zc)}>{b.bpm}</span>} /><RestScreen restRem={restRem} nextLabel={resting.nextLabel} nextEx={resting.nextEx} restKey={resting.restKey} hrInputRefs={hrInputRefs} onSkip={function() { captureHR(resting.restKey); clearInterval(restRef.current); doAdvance(resting.bk, resting.ei, resting.si, false); }} /></Card>;
-        if (bk !== b.id) return <Card key={b.id}><CardHdr left={b.label} right={<span style={badgeStyle(b.zc)}>{b.bpm}</span>} /><div style={{ padding: 16, textAlign: "center", color: "#aaa", fontSize: 13 }}>Navigate using the tabs above.</div></Card>;
+        if (resting && resting.bk === b.id) {
+          var bIdx3 = session.blocks.findIndex(function(x) { return x.id === b.id; });
+          var tb3 = b.exercises.reduce(function(a, e) { var r3 = (b.rounds && b.rounds > 1) ? b.rounds : 1; return a + r3 * e.sets; }, 0);
+          var db3 = b.exercises.reduce(function(a, e) { return a + (logs[e.id] || []).filter(function(l) { return l.done; }).length; }, 0);
+          var sp3 = Math.round((bIdx3 / session.blocks.length) * 100);
+          var bp3 = Math.round((db3 / tb3) * 100);
+          return <div key={b.id} className="ci-card">
+            <div className="ci-hdr"><span>{b.label}</span></div>
+            <div className="ci-progress">
+              <div className="ci-progress-row"><span className="ci-progress-lbl">Session</span><span className="ci-progress-val">Block {bIdx3 + 1} of {session.blocks.length}</span></div>
+              <div style={{ display: "flex", gap: 3, marginBottom: 10 }}>
+                {session.blocks.map(function(blk, i) { return <div key={i} style={{ flex: 1, height: 2, borderRadius: 2, background: "#e8a040", opacity: i < bIdx3 ? 1 : i === bIdx3 ? 0.5 : 0.15 }} />; })}
+              </div>
+              <div className="ci-progress-row"><span className="ci-progress-lbl">Block</span><span className="ci-progress-val">{db3} of {tb3} sets</span></div>
+              <div className="ci-progress-track" style={{ marginBottom: 0 }}><div className="ci-progress-fill" style={{ width: bp3 + "%", background: "#e8a040" }} /></div>
+            </div>
+            <RestScreen restRem={restRem} restTotal={resting.sec} nextLabel={resting.nextLabel} nextEx={resting.nextEx} restKey={resting.restKey} hrInputRefs={hrInputRefs} onSkip={function() { captureHR(resting.restKey); clearInterval(restRef.current); doAdvance(resting.bk, resting.ei, resting.si, false); }} />
+          </div>;
+        }
+        if (bk !== b.id) return <div key={b.id} className="ci-card"><div className="ci-hdr"><span>{b.label}</span></div><div style={{ padding: 16, textAlign: "center", color: "#555", fontSize: 13, background: "#1c1c1c" }}>Navigate using the tabs above.</div></div>;
         var rounds = (b.rounds && b.rounds > 1) ? b.rounds : 1;
         var isCircuit = rounds > 1;
         var round = trainState.round;
         var ex = b.exercises[ei]; var log = (logs[ex && ex.id] && logs[ex.id][si]) || {};
         var globalSi = isCircuit ? round * ex.sets + si : si;
         var circuitLog = (logs[ex && ex.id] && logs[ex.id][globalSi]) || log;
-        // Find last set for this exercise from lastSessionSets
-        var lastRef = lastSessionSets.filter(function(s) { return s.exercise === ex.name && s.set_number === globalSi + 1; })[0] || null;
-        // Circuit subheader: round progress bar + exercise dots
-        var circuitSubhdr = isCircuit ? (
-          <div style={{ background: "#f9f9f7", borderBottom: "0.5px solid #eee", padding: "8px 14px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-              <span style={{ fontSize: 11, color: "#666", fontWeight: 500 }}>Round {round + 1} of {rounds}</span>
-              <span style={{ fontSize: 11, color: "#999" }}>{ei + 1} / {b.exercises.length} exercises</span>
-            </div>
-            <div style={{ display: "flex", gap: 4 }}>
-              {Array.from({ length: rounds }, function(_, i) { return <div key={i} style={{ flex: 1, height: 3, borderRadius: 2, background: i < round ? "#2d7a4f" : i === round ? "#1a1a1a" : "#ddd" }} />; })}
-            </div>
-          </div>
-        ) : (
-          <div style={{ background: "#f9f9f7", borderBottom: "0.5px solid #eee", padding: "7px 14px", fontSize: 11, color: "#666", display: "flex", alignItems: "center", gap: 6 }}>Target HR: <span style={badgeStyle(b.zc)}>{b.bpm}</span></div>
-        );
-        // For circuits use exercise dots spanning all exercises in this round; for straight sets use set dots
+        // Session progress: blocks done / total blocks
+        var bIdx2 = session.blocks.findIndex(function(x) { return x.id === b.id; });
+        var sessionPct = Math.round((bIdx2 / session.blocks.length) * 100);
+        // Block progress: sets done in this block
+        var totalBlockSets = b.exercises.reduce(function(a, e) { var r2 = (b.rounds && b.rounds > 1) ? b.rounds : 1; return a + r2 * e.sets; }, 0);
+        var doneBlockSets = b.exercises.reduce(function(a, e) { return a + (logs[e.id] || []).filter(function(l) { return l.done; }).length; }, 0);
+        var blockPct = Math.round((doneBlockSets / totalBlockSets) * 100);
+        // Dots
         var progressDots = isCircuit
-          ? b.exercises.map(function(e, i) { var gsi = round * e.sets; var done = logs[e.id] && logs[e.id][gsi] && logs[e.id][gsi].done; var curr = i === ei; return <div key={i} style={{ width: curr ? 12 : 10, height: curr ? 12 : 10, borderRadius: "50%", background: done ? "#2d7a4f" : curr ? "#1a1a1a" : "#ddd", flexShrink: 0 }} />; })
-          : Array.from({ length: ex.sets }, function(_, i) { var st = (logs[ex.id] && logs[ex.id][i] && logs[ex.id][i].done) ? "done" : i === si ? "current" : "idle"; return <div key={i} style={{ width: st === "current" ? 12 : 10, height: st === "current" ? 12 : 10, borderRadius: "50%", background: st === "done" ? "#2d7a4f" : st === "current" ? "#1a1a1a" : "#ddd", flexShrink: 0 }} />; });
-        var progressLabel = isCircuit ? "Exercise " + (ei + 1) + " of " + b.exercises.length : "Set " + (si + 1) + " of " + ex.sets;
-        var logBtnLabel = isCircuit ? "Log — " + ex.name : "Log set " + (si + 1);
-        return <Card key={b.id}>
-          <CardHdr left={b.label} right={<span style={badgeStyle(b.zc)}>{b.bpm}</span>} />
-          {circuitSubhdr}
-          <div style={{ padding: 16 }}>
-            <div style={{ fontSize: 17, fontWeight: 500, marginBottom: 2 }}>{ex.name}</div>
-            <div style={{ fontSize: 12, color: "#888", marginBottom: 6 }}>{ex.equip} · {ex.tempo}</div>
-            <div style={{ fontSize: 12, color: "#555", background: "#f9f9f7", borderLeft: "3px solid #ccc", padding: "7px 10px", borderRadius: "0 6px 6px 0", marginBottom: 14, lineHeight: 1.5 }}>{ex.cue}</div>
+          ? b.exercises.map(function(e, i) { var gsi = round * e.sets; var done = logs[e.id] && logs[e.id][gsi] && logs[e.id][gsi].done; var curr = i === ei; return <div key={i} className={"ci-set-dot" + (done ? " done" : curr ? " current" : " idle")} />; })
+          : Array.from({ length: ex.sets }, function(_, i) { var st = (logs[ex.id] && logs[ex.id][i] && logs[ex.id][i].done) ? "done" : i === si ? "current" : "idle"; return <div key={i} className={"ci-set-dot " + st} />; });
+        var logBtnLabel = isCircuit ? "Log — " + ex.name : "Log set";
+        // Circuit round bar
+        var circuitRoundBar = isCircuit ? null : null; // round bar now merged into ci-progress below
+        // Cue toggle state — use a ref to avoid re-render issues
+        return <div key={b.id} className="ci-card">
+          <div className="ci-hdr"><span>{b.label}</span></div>
+          <div className="ci-progress">
+            <div className="ci-progress-row"><span className="ci-progress-lbl">Session</span><span className="ci-progress-val">Block {bIdx2 + 1} of {session.blocks.length}</span></div>
+            <div style={{ display: "flex", gap: 3, marginBottom: 10 }}>{session.blocks.map(function(blk, i) { return <div key={i} style={{ flex: 1, height: 2, borderRadius: 2, background: "#e8a040", opacity: i < bIdx2 ? 1 : i === bIdx2 ? 0.5 : 0.15 }} />; })}</div>
+            <div className="ci-progress-row"><span className="ci-progress-lbl">Block</span><span className="ci-progress-val">{doneBlockSets} of {totalBlockSets} sets</span></div>
+            <div className="ci-progress-track"><div className="ci-progress-fill" style={{ width: blockPct + "%", background: "#e8a040" }} /></div>
+            {isCircuit && <div className="ci-progress-row" style={{ marginTop: 0 }}><span className="ci-progress-lbl">Round</span><span className="ci-progress-val">{round + 1} of {rounds}</span></div>}
+            {isCircuit && <div className="ci-progress-track" style={{ marginBottom: 0 }}><div className="ci-progress-fill" style={{ width: Math.round(((round + 1) / rounds) * 100) + "%", background: "#e8a040" }} /></div>}
+          </div>
+          <div style={{ padding: 16, background: "#1c1c1c" }}>
             <div style={{ display: "flex", gap: 6, marginBottom: 14, alignItems: "center" }}>
               {progressDots}
-              <span style={{ fontSize: 12, color: "#999", marginLeft: 4 }}>{progressLabel}</span>
             </div>
-            <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 10, color: "#333" }}>Target: {ex.reps}{ex.ru}{ex.kg > 0 ? " · " + ex.kg + " kg" : ""}</div>
-            {lastRef && <div style={{ fontSize: 11, color: "#888", background: "#f0f0ee", borderRadius: 6, padding: "5px 10px", marginBottom: 12 }}>Last: {lastRef.actual_reps || "-"} reps · {lastRef.actual_kg || "-"} kg · {lastRef.rir_score ? RIR_MAP[lastRef.rir_score] : "-"}</div>}
+            <div style={{ fontSize: 20, fontWeight: 600, color: "#f0ede8", marginBottom: 2 }}>{ex.name}</div>
+            <div style={{ fontSize: 12, color: "#555", marginBottom: 12 }}>{ex.equip} · {ex.tempo} · {ex.reps}{ex.ru}{ex.kg > 0 ? " · " + ex.kg + " kg" : ""}</div>
+            <CiCueBlock cue={ex.cue} />
             {ex.ru === "sec" && <ExTimer reps={ex.reps} />}
-            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 14 }}>
-              <div><div style={{ fontSize: 11, color: "#999", fontWeight: 500, marginBottom: 4 }}>REPS{ex.ru && ex.ru !== "sec" ? " (" + ex.ru + ")" : ""} COMPLETED</div><Stepper value={circuitLog.reps !== "" ? circuitLog.reps : String(ex.reps)} onChange={function(v) { updateLog(ex.id, globalSi, "reps", v); }} step={1} placeholder={String(ex.reps)} /></div>
-              <div><div style={{ fontSize: 11, color: "#999", fontWeight: 500, marginBottom: 4 }}>WEIGHT (KG)</div><Stepper value={circuitLog.weight !== "" ? circuitLog.weight : (ex.kg > 0 ? String(ex.kg) : "")} onChange={function(v) { updateLog(ex.id, globalSi, "weight", v); }} step={0.5} placeholder={ex.kg > 0 ? String(ex.kg) : "kg"} /></div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
+              <CiTile id={"reps_" + globalSi} value={circuitLog.reps !== "" ? circuitLog.reps : String(ex.reps)} label="Reps" step={1} onChange={function(v) { updateLog(ex.id, globalSi, "reps", v); }} />
+              <CiTile id={"weight_" + globalSi} value={circuitLog.weight !== "" ? circuitLog.weight : (ex.kg > 0 ? String(ex.kg) : "")} label="KG" step={0.5} onChange={function(v) { updateLog(ex.id, globalSi, "weight", v); }} />
             </div>
-            <div style={{ fontSize: 11, color: "#999", fontWeight: 500, marginBottom: 8 }}>EFFORT (RESERVE)</div>
+            <div style={{ fontSize: 11, color: "#555", fontWeight: 500, marginBottom: 8, textTransform: "uppercase", letterSpacing: ".06em" }}>Effort (reserve)</div>
             <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
-              {RIR_LABELS.map(function(r) { return <div key={r.val} style={rirOptStyle(r.val, circuitLog.rir === r.val)} onClick={function() { updateLog(ex.id, globalSi, "rir", r.val); }}><div style={{ fontSize: 12, fontWeight: 500 }}>{r.label}</div><div style={{ fontSize: 9, color: circuitLog.rir === r.val ? "inherit" : "#999", marginTop: 2 }}>{r.sub}</div></div>; })}
+              {RIR_LABELS.map(function(r) { var on = circuitLog.rir === r.val; return <div key={r.val} className={"ci-rir-opt" + (on ? " on-" + r.val : "")} onClick={function() { updateLog(ex.id, globalSi, "rir", r.val); }}>{r.label}</div>; })}
             </div>
-            <button style={{ width: "100%", padding: 13, background: "#1a1a1a", color: "#fff", border: "none", borderRadius: 10, fontSize: 15, fontWeight: 500, cursor: "pointer", marginBottom: 10 }} onClick={function() { logSet(b.id, ei, si); }}>{logBtnLabel}</button>
-            <button style={{ width: "100%", padding: 7, background: "#fff", color: "#aaa", border: "0.5px solid #e0e0e0", borderRadius: 8, fontSize: 12, cursor: "pointer" }} onClick={function() { setSkipConfirm({ bk: b.id, ei: ei, si: si }); }}>Skip</button>
-            {skipConfirm && skipConfirm.bk === b.id && skipConfirm.ei === ei && skipConfirm.si === si && <div style={{ marginTop: 10, background: "#fff7ed", border: "0.5px solid #fcd9a0", borderRadius: 8, padding: "10px 12px", fontSize: 12, color: "#92400e", textAlign: "center" }}>Skip this set?<div style={{ display: "flex", gap: 8, marginTop: 8 }}><button style={{ flex: 1, padding: 7, borderRadius: 6, border: "0.5px solid #fcd9a0", background: "#fff", fontSize: 12, cursor: "pointer" }} onClick={function() { setSkipConfirm(null); }}>Cancel</button><button style={{ flex: 1, padding: 7, borderRadius: 6, border: "none", background: "#1a1a1a", color: "#fff", fontSize: 12, cursor: "pointer" }} onClick={function() { doAdvance(b.id, ei, si, true); }}>Yes, skip</button></div></div>}
+            <button className="ci-btn-log" onClick={function() { logSet(b.id, ei, si); }}>{logBtnLabel}</button>
+            <button className="ci-btn-skip" onClick={function() { setSkipConfirm({ bk: b.id, ei: ei, si: si }); }}>Skip set</button>
+            {skipConfirm && skipConfirm.bk === b.id && skipConfirm.ei === ei && skipConfirm.si === si && <div style={{ marginTop: 10, background: "#1e1008", border: "1px solid #4a3010", borderRadius: 8, padding: "10px 12px", fontSize: 12, color: "#e8a040", textAlign: "center" }}>Skip this set?<div style={{ display: "flex", gap: 8, marginTop: 8 }}><button style={{ flex: 1, padding: 7, borderRadius: 6, border: "1px solid #4a3010", background: "transparent", fontSize: 12, cursor: "pointer", color: "#e8a040" }} onClick={function() { setSkipConfirm(null); }}>Cancel</button><button style={{ flex: 1, padding: 7, borderRadius: 6, border: "none", background: "#e8a040", color: "#111", fontSize: 12, cursor: "pointer", fontWeight: 600 }} onClick={function() { doAdvance(b.id, ei, si, true); }}>Yes, skip</button></div></div>}
           </div>
-        </Card>;
+        </div>;
       })}
       {phase === "complete" && <Card><CardHdr left="Session complete" /><div style={{ padding: 16, textAlign: "center" }}><div style={{ fontSize: 40, marginBottom: 12 }}>✓</div>{dur && <div style={{ fontSize: 13, color: "#888", marginBottom: 8 }}>Duration: {dur} min</div>}<SyncStatus status={syncStatus} /><ActionBtn onClick={function() { setPhase("summary"); }}>View summary</ActionBtn></div></Card>}
       {phase === "summary" && session && <TrainingSummary session={session} logs={logs} wl={wl} estDur={estDur} dur={dur} buildCSV={buildCSV} syncStatus={syncStatus} />}
