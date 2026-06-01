@@ -7,9 +7,10 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { background: #f5f5f3; font-family: system-ui, sans-serif; color: #1a1a1a; }
+body { background: #111; font-family: system-ui, sans-serif; color: #f0ede8; }
 input, select, textarea, button { font-family: inherit; }
 input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -172,36 +173,38 @@ var DEFAULT_CONFIG = {
 };
 
 // ── SHARED COMPONENTS ─────────────────────────────────────────
-function Card({ children, style }) { return <div style={Object.assign({ background: "#fff", border: "0.5px solid #ddd", borderRadius: 12, marginBottom: 12, overflow: "hidden" }, style || {})}>{children}</div>; }
-function CardHdr({ left, right }) { return <div style={{ background: "#1a1a1a", color: "#fff", padding: "10px 14px", fontSize: 13, fontWeight: 500, display: "flex", justifyContent: "space-between", alignItems: "center" }}><span>{left}</span><span>{right}</span></div>; }
-function ActionBtn({ onClick, secondary, disabled, children }) { return <button onClick={onClick} disabled={disabled} style={{ width: "100%", padding: 13, background: disabled ? "#ccc" : secondary ? "#fff" : "#1a1a1a", color: secondary ? "#1a1a1a" : "#fff", border: secondary ? "0.5px solid #ccc" : "none", borderRadius: 10, fontSize: 14, fontWeight: 500, cursor: disabled ? "default" : "pointer", marginBottom: 8 }}>{children}</button>; }
+function Card({ children, style }) { return <div style={Object.assign({ background: "#1c1c1c", border: "1px solid #2a2a2a", borderRadius: 12, marginBottom: 12, overflow: "hidden" }, style || {})}>{children}</div>; }
+function CardHdr({ left, right, color }) { return <div style={{ background: "#1c1c1c", padding: "12px 14px", fontSize: 15, fontWeight: 700, display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid #222" }}><span style={{ color: color || "#f0ede8" }}>{left}</span><span style={{ fontSize: 11, color: "#555", fontWeight: 400 }}>{right}</span></div>; }
+function ActionBtn({ onClick, secondary, disabled, children, tabColor: btnColor }) { var ac = btnColor || "#e8a040"; return <button onClick={onClick} disabled={disabled} style={{ width: "100%", padding: 13, background: disabled ? "#333" : secondary ? "transparent" : ac, color: disabled ? "#666" : secondary ? ac : "#111", border: secondary ? "1px solid " + ac + "55" : "none", borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: disabled ? "default" : "pointer", marginBottom: 8 }}>{children}</button>; }
 function Stepper({ value, onChange, step, placeholder }) {
   var v = parseFloat(value) || 0;
   return (
-    <div style={{ display: "flex", alignItems: "center", border: "0.5px solid #ccc", borderRadius: 8, overflow: "hidden", background: "#fff", height: 48 }}>
-      <button style={{ width: 48, height: 48, minWidth: 48, border: "none", background: "#f5f5f3", cursor: "pointer", fontSize: 20, color: "#333" }} onClick={function() { onChange(String(Math.max(0, Math.round((v - step) * 100) / 100))); }}>-</button>
-      <input type="number" inputMode={step < 1 ? "decimal" : "numeric"} style={{ flex: 1, border: "none", textAlign: "center", fontSize: 18, fontWeight: 500, background: "#fff", minWidth: 0, padding: 0, height: 48 }} value={value} placeholder={placeholder} onChange={function(e) { onChange(e.target.value); }} />
-      <button style={{ width: 48, height: 48, minWidth: 48, border: "none", background: "#f5f5f3", cursor: "pointer", fontSize: 20, color: "#333" }} onClick={function() { onChange(String(Math.round((v + step) * 100) / 100)); }}>+</button>
+    <div style={{ display: "flex", alignItems: "center", border: "1px solid #2a2a2a", borderRadius: 8, overflow: "hidden", background: "#1c1c1c", height: 48 }}>
+      <button style={{ width: 48, height: 48, minWidth: 48, border: "none", background: "#252525", cursor: "pointer", fontSize: 20, color: "#888" }} onClick={function() { onChange(String(Math.max(0, Math.round((v - step) * 100) / 100))); }}>-</button>
+      <input type="number" inputMode={step < 1 ? "decimal" : "numeric"} style={{ flex: 1, border: "none", textAlign: "center", fontSize: 18, fontWeight: 500, background: "#1c1c1c", color: "#f0ede8", minWidth: 0, padding: 0, height: 48 }} value={value} placeholder={placeholder} onChange={function(e) { onChange(e.target.value); }} />
+      <button style={{ width: 48, height: 48, minWidth: 48, border: "none", background: "#252525", cursor: "pointer", fontSize: 20, color: "#888" }} onClick={function() { onChange(String(Math.round((v + step) * 100) / 100)); }}>+</button>
     </div>
   );
 }
+var MACRO_COLORS = { Calories: "#5bb8d4", Protein: "#4caf7d", Carbs: "#e8a040", Fat: "#e07060" };
 function MacroBar({ label, value, goal, color }) {
   var over = value > goal; var pct = Math.min((value / goal) * 100, 100);
+  var barColor = over ? "#e05050" : (MACRO_COLORS[label] || color);
   return (
     <div style={{ marginBottom: 8 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}><span style={{ fontWeight: 500 }}>{label}</span><span style={{ color: over ? "#ef4444" : "#888" }}>{value} / {goal}{label === "Calories" ? " kcal" : "g"}</span></div>
-      <div style={{ background: "#e5e7eb", borderRadius: 99, height: 8, overflow: "hidden", marginTop: 3 }}><div style={{ width: pct + "%", background: over ? "#ef4444" : color, height: "100%", borderRadius: 99 }} /></div>
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}><span style={{ fontWeight: 500, color: "#f0ede8" }}>{label}</span><span style={{ color: over ? "#e05050" : "#555" }}>{value} / {goal}{label === "Calories" ? " kcal" : "g"}</span></div>
+      <div style={{ background: "#252525", borderRadius: 99, height: 7, overflow: "hidden", marginTop: 3 }}><div style={{ width: pct + "%", background: barColor, height: "100%", borderRadius: 99 }} /></div>
     </div>
   );
 }
 function SyncStatus({ status }) {
   if (!status) return null;
-  return <div style={{ fontSize: 12, padding: "6px 10px", borderRadius: 8, background: status === "ok" ? "#dcfce7" : "#fee2e2", color: status === "ok" ? "#166534" : "#991b1b", marginBottom: 8 }}>{status === "ok" ? "✓ Saved" : "⚠ Save failed — will retry"}</div>;
+  return <div style={{ fontSize: 12, padding: "6px 10px", borderRadius: 8, background: status === "ok" ? "#0d2018" : "#2a0d0d", color: status === "ok" ? "#4caf7d" : "#e05050", marginBottom: 8 }}>{status === "ok" ? "✓ Saved" : "⚠ Save failed — will retry"}</div>;
 }
 function Loader() {
   return <div style={{ display: "flex", justifyContent: "center", alignItems: "center", padding: 40, flexDirection: "column", gap: 16 }}>
-    <div style={{ width: 24, height: 24, border: "2px solid #ddd", borderTop: "2px solid #1a1a1a", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
-    <div style={{ fontSize: 13, color: "#aaa" }}>Loading your data...</div>
+    <div style={{ width: 24, height: 24, border: "2px solid #333", borderTop: "2px solid #e8a040", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+    <div style={{ fontSize: 13, color: "#555" }}>Loading your data...</div>
   </div>;
 }
 
@@ -223,7 +226,7 @@ function calcWeeklySummary(weekSessions, weeklyRow) {
 }
 
 // ── DASHBOARD ─────────────────────────────────────────────────
-function Dashboard({ config, todayLogs, calGoal, carbGoal, fatGoal, isTrainingDay, weekSessions, weeklyRow, onTabChange, weeklySummaryLogs, activities }) {
+function Dashboard({ config, todayLogs, calGoal, carbGoal, fatGoal, isTrainingDay, weekSessions, weeklyRow, onTabChange, weeklySummaryLogs, activities, tabColor, tabBg }) {
   var totals = todayLogs.reduce(function(a, e) { return { cal: a.cal + (e.calories||e.cal||0), protein: a.protein + (e.protein||0), carbs: a.carbs + (e.carbs||0), fat: a.fat + (e.fat||0) }; }, { cal: 0, protein: 0, carbs: 0, fat: 0 });
   var remaining = calGoal - totals.cal;
   var last = weekSessions.length > 0 ? weekSessions[weekSessions.length - 1] : null;
@@ -233,18 +236,18 @@ function Dashboard({ config, todayLogs, calGoal, carbGoal, fatGoal, isTrainingDa
   return (
     <div>
       <Card>
-        <CardHdr left="Today — Nutrition" right={<span style={{ fontSize: 11, color: "#aaa" }}>{fmtDate(todayISO())}</span>} />
+        <CardHdr color={tabColor} left="Dashboard" right={<span style={{ fontSize: 11, color: "#aaa" }}>{fmtDate(todayISO())}</span>} />
         <div style={{ padding: 14 }}>
           <MacroBar label="Calories" value={totals.cal} goal={calGoal} color="#a5f3fc" />
           <MacroBar label="Protein" value={totals.protein} goal={config.nutrition.protein} color="#86efac" />
           <MacroBar label="Carbs" value={totals.carbs} goal={carbGoal} color="#fde68a" />
           <MacroBar label="Fat" value={totals.fat} goal={fatGoal} color="#fca5a5" />
-          <div style={{ marginTop: 10, fontSize: 13, fontWeight: 500, color: remaining >= 0 ? "#166534" : "#dc2626" }}>{remaining >= 0 ? remaining + " kcal remaining" : Math.abs(remaining) + " kcal over goal"}</div>
-          <div style={{ fontSize: 11, color: "#aaa", marginTop: 4 }}>{isTrainingDay ? "Training day targets" : "Rest day targets"}</div>
+          <div style={{ marginTop: 10, fontSize: 13, fontWeight: 500, color: remaining >= 0 ? tabColor : "#e05050" }}>{remaining >= 0 ? remaining + " kcal remaining" : Math.abs(remaining) + " kcal over goal"}</div>
+          <div style={{ fontSize: 11, color: "#444", marginTop: 4 }} style={{ color: "#444" }}>{isTrainingDay ? "Training day targets" : "Rest day targets"}</div>
         </div>
       </Card>
       <Card>
-        <CardHdr left="This week" right={<span style={{ fontSize: 11, color: "#aaa" }}>{weekly.daysLogged || 0} / 7 days logged</span>} />
+        <CardHdr color={tabColor} left="Dashboard" right={<span style={{ fontSize: 11, color: "#444" }}>{weekly.daysLogged || 0} / 7 days logged</span>} />
         <div style={{ padding: 14 }}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
             {(function() {
@@ -269,28 +272,28 @@ function Dashboard({ config, todayLogs, calGoal, carbGoal, fatGoal, isTrainingDa
                 { label: "Avg protein", value: weekly.avgProtein ? weekly.avgProtein + "g" : "-", color: "#1a1a1a" },
                 { label: "Protein goal hit", value: proteinDaysHit !== null ? proteinDaysHit + " / " + weekly.daysLogged + " days" : "-", color: "#1a1a1a" },
               ].map(function(item) {
-                return <div key={item.label} style={{ background: "#f5f5f3", borderRadius: 8, padding: "8px 10px", textAlign: "center" }}>
-                  <div style={{ fontSize: 15, fontWeight: 500, color: item.color }}>{item.value}</div>
-                  <div style={{ fontSize: 10, color: "#aaa" }}>{item.label}</div>
+                return <div key={item.label} style={{ background: tabBg, borderRadius: 8, padding: "8px 10px", textAlign: "center", border: "1px solid " + tabColor + "22" }}>
+                  <div style={{ fontSize: 15, fontWeight: 600, color: item.color === "#1a1a1a" || item.color === "#f0ede8" ? "#f0ede8" : item.color }}>{item.value}</div>
+                  <div style={{ fontSize: 10, color: "#444" }}>{item.label}</div>
                 </div>;
               });
             })()}
           </div>
           {weekly.daysLogged >= 3
-            ? <div><ActionBtn secondary onClick={handleWeeklyReport} disabled={reportLoading}>{reportLoading ? "Generating..." : "Generate weekly report"}</ActionBtn>{reportErr && <div style={{ fontSize: 12, color: "#dc2626", marginTop: 6 }}>{reportErr}</div>}{weeklyReport && <div style={{ fontSize: 13, color: "#333", background: "#f9f9f7", borderRadius: 8, padding: 12, marginTop: 8, lineHeight: 1.6 }}>{weeklyReport}</div>}</div>
-            : <div style={{ fontSize: 11, color: "#aaa", textAlign: "center" }}>Log at least 3 days to generate weekly report</div>}
+            ? <div><ActionBtn secondary onClick={handleWeeklyReport} disabled={reportLoading} tabColor={tabColor}>{reportLoading ? "Generating..." : "Generate weekly report"}</ActionBtn>{reportErr && <div style={{ fontSize: 12, color: "#dc2626", marginTop: 6 }}>{reportErr}</div>}{weeklyReport && <div style={{ fontSize: 13, color: "#333", background: "#f9f9f7", borderRadius: 8, padding: 12, marginTop: 8, lineHeight: 1.6 }}>{weeklyReport}</div>}</div>
+            : <div style={{ fontSize: 11, color: "#444", textAlign: "center" }}>Log at least 3 days to generate weekly report</div>}
         </div>
       </Card>
       <Card>
-        <CardHdr left="Last session" />
+        <CardHdr color={tabColor} left="Dashboard" />
         <div style={{ padding: 14 }}>
           {last
-            ? <div><div style={{ fontSize: 14, fontWeight: 500, marginBottom: 4 }}>{last.title}</div><div style={{ fontSize: 12, color: "#888", marginBottom: 10 }}>{last.date}{last.actual_duration ? " · " + last.actual_duration + " min" : ""}</div><div style={{ display: "flex", gap: 12 }}>{[["difficulty kg", last.difficulty_kg || "-"], ["completion", (last.completion_pct || "-") + "%"]].map(function(item) { return <div key={item[0]} style={{ flex: 1, background: "#f5f5f3", borderRadius: 8, padding: "8px 10px", textAlign: "center" }}><div style={{ fontSize: 18, fontWeight: 500 }}>{item[1]}</div><div style={{ fontSize: 10, color: "#aaa" }}>{item[0]}</div></div>; })}</div></div>
-            : <div style={{ textAlign: "center", padding: "20px 0" }}><div style={{ fontSize: 13, color: "#aaa", marginBottom: 12 }}>No sessions this week.</div><ActionBtn secondary onClick={function() { onTabChange("training"); }}>Go to Training</ActionBtn></div>}
+            ? <div><div style={{ fontSize: 14, fontWeight: 500, marginBottom: 4 }}>{last.title}</div><div style={{ fontSize: 12, color: "#888", marginBottom: 10 }}>{last.date}{last.actual_duration ? " · " + last.actual_duration + " min" : ""}</div><div style={{ display: "flex", gap: 12 }}>{[["difficulty kg", last.difficulty_kg || "-"], ["completion", (last.completion_pct || "-") + "%"]].map(function(item) { return <div key={item[0]} style={{ flex: 1, background: tabBg, borderRadius: 8, padding: "8px 10px", textAlign: "center", border: "1px solid " + tabColor + "22" }}><div style={{ fontSize: 18, fontWeight: 600, color: "#f0ede8" }}>{item[1]}</div><div style={{ fontSize: 10, color: "#444" }}>{item[0]}</div></div>; })}</div></div>
+            : <div style={{ textAlign: "center", padding: "20px 0" }}><div style={{ fontSize: 13, color: "#444", marginBottom: 12 }}>No sessions this week.</div><ActionBtn secondary onClick={function() { onTabChange("training"); }} tabColor={tabColor}>Go to Training</ActionBtn></div>}
         </div>
       </Card>
       <Card>
-        <CardHdr left="Body composition" right={<span style={{ fontSize: 11, color: "#aaa" }}>{config.athlete.scanDate}</span>} />
+        <CardHdr color={tabColor} left="Dashboard" right={<span style={{ fontSize: 11, color: "#aaa" }}>{config.athlete.scanDate}</span>} />
         <div style={{ padding: 14 }}>
           {[["Weight", config.athlete.weight + " kg"], ["SMM", config.athlete.smm + " kg"], ["Body Fat", config.athlete.bf + "%"], ["Phase", config.goals.phase], ["Target", config.goals.targetWeight + " kg"]].map(function(item) { return <div key={item[0]} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "4px 0", borderBottom: "0.5px solid #f0f0f0" }}><span style={{ color: "#888" }}>{item[0]}</span><span style={{ fontWeight: 500 }}>{item[1]}</span></div>; })}
         </div>
@@ -359,7 +362,7 @@ var SetScreen = memo(function SetScreen({ ex, si, log, lastRef, onLog, onSkip, o
         {RIR_LABELS.map(function(r) { return <div key={r.val} style={rirOptStyle(r.val, log.rir === r.val)} onClick={function() { onSetRir(r.val); }}><div style={{ fontSize: 12, fontWeight: 500 }}>{r.label}</div><div style={{ fontSize: 9, color: log.rir === r.val ? "inherit" : "#999", marginTop: 2 }}>{r.sub}</div></div>; })}
       </div>
       <button style={{ width: "100%", padding: 13, background: "#1a1a1a", color: "#fff", border: "none", borderRadius: 10, fontSize: 15, fontWeight: 500, cursor: "pointer", marginBottom: 10 }} onClick={onLog}>Log set {si + 1}</button>
-      <button style={{ width: "100%", padding: 7, background: "#fff", color: "#aaa", border: "0.5px solid #e0e0e0", borderRadius: 8, fontSize: 12, cursor: "pointer" }} onClick={onSkip}>Skip set</button>
+      <button style={{ width: "100%", padding: 7, background: "transparent", color: "#444", border: "1px solid #222", borderRadius: 8, fontSize: 12, cursor: "pointer" }} onClick={onSkip}>Skip set</button>
     </div>
   );
 });
@@ -413,8 +416,8 @@ function TrainingSummary({ session, logs, wl, estDur, dur, buildCSV, syncStatus 
   return (
     <div>
       <SyncStatus status={syncStatus} />
-      <div style={{ background: "#fff", border: "0.5px solid #ddd", borderRadius: 10, padding: "12px 14px", marginBottom: 10 }}>
-        <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 8 }}>Equipment needed</div>
+      <div style={{ background: "#1c1c1c", border: "1px solid #2a2a2a", borderRadius: 10, padding: "12px 14px", marginBottom: 10 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: "#f0ede8" }}>Equipment needed</div>
         {session.blocks.map(function(b) { return b.exercises.map(function(ex) { return <div key={ex.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "5px 0", borderBottom: "0.5px solid #f0f0f0" }}><span>{ex.name}</span><span style={{ color: "#2d7a4f", fontWeight: 500 }}>{ex.kg > 0 ? ex.kg + " kg" : "Bodyweight"}</span></div>; }); })}
       </div>
       <div style={{ background: "#1a1a1a", color: "#fff", borderRadius: 10, padding: 14, marginBottom: 10 }}>
@@ -424,16 +427,16 @@ function TrainingSummary({ session, logs, wl, estDur, dur, buildCSV, syncStatus 
       {session.blocks.map(function(b) { return b.exercises.map(function(ex) {
         var isSec = ex.ru === "sec"; var vol = 0; var isW = false;
         return (
-          <div key={ex.id} style={{ background: "#fff", border: "0.5px solid #ddd", borderRadius: 10, padding: "12px 14px", marginBottom: 10 }}>
-            <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 8 }}>{ex.name}</div>
-            {(logs[ex.id] || []).map(function(lg, i) { var r = parseFloat(lg.reps) || ex.reps || 0, w = parseFloat(lg.weight) || (ex.kg > 0 ? ex.kg : 0); if (w > 0) { vol += r * w; isW = true; } var below = !isSec && lg.reps && r < ex.reps; return <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, padding: "4px 0", borderBottom: "0.5px solid #f0f0f0", color: "#555" }}><span>Set {i + 1}</span><span>{isSec ? ((lg.reps || ex.reps) + "s") : ((lg.reps || ex.reps) + " reps")} · {w > 0 ? w + " kg" : "BW"} · {lg.rir ? RIR_MAP[lg.rir] : "-"}{below ? <span style={{ color: "#dc2626", fontSize: 10 }}> ↓</span> : null}</span></div>; })}
-            <div style={{ fontSize: 11, color: "#888", marginTop: 6, paddingTop: 6, borderTop: "0.5px solid #f0f0f0" }}>{isW ? "Total volume: " + Math.round(vol) + " kg" : isSec ? "Isometric - duration & RIR" : "Bodyweight - reps & RIR"}</div>
+          <div key={ex.id} style={{ background: "#1c1c1c", border: "1px solid #2a2a2a", borderRadius: 10, padding: "12px 14px", marginBottom: 10 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: "#f0ede8" }}>{ex.name}</div>
+            {(logs[ex.id] || []).map(function(lg, i) { var r = parseFloat(lg.reps) || ex.reps || 0, w = parseFloat(lg.weight) || (ex.kg > 0 ? ex.kg : 0); if (w > 0) { vol += r * w; isW = true; } var below = !isSec && lg.reps && r < ex.reps; return <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, padding: "4px 0", borderBottom: "1px solid #222", color: "#888" }}><span>Set {i + 1}</span><span>{isSec ? ((lg.reps || ex.reps) + "s") : ((lg.reps || ex.reps) + " reps")} · {w > 0 ? w + " kg" : "BW"} · {lg.rir ? RIR_MAP[lg.rir] : "-"}{below ? <span style={{ color: "#dc2626", fontSize: 10 }}> ↓</span> : null}</span></div>; })}
+            <div style={{ fontSize: 11, color: "#555", marginTop: 6, paddingTop: 6, borderTop: "1px solid #222" }}>{isW ? "Total volume: " + Math.round(vol) + " kg" : isSec ? "Isometric - duration & RIR" : "Bodyweight - reps & RIR"}</div>
           </div>
         );
       }); })}
       <ActionBtn onClick={function() { navigator.clipboard.writeText(buildCSV()).then(function() { setCopyDone(true); setTimeout(function() { setCopyDone(false); }, 2000); }).catch(function() { setShowCSV(true); }); }}>{copyDone ? "Copied" : "Copy summary"}</ActionBtn>
       <ActionBtn secondary onClick={function() { setShowCSV(function(v) { return !v; }); }}>Export as CSV</ActionBtn>
-      {showCSV && <div style={{ background: "#f5f5f3", border: "0.5px solid #ddd", borderRadius: 8, padding: 12, fontSize: 11, fontFamily: "monospace", whiteSpace: "pre-wrap", wordBreak: "break-all", marginTop: 8, maxHeight: 200, overflowY: "auto" }}>{buildCSV()}</div>}
+      {showCSV && <div style={{ background: "#161616", border: "1px solid #222", borderRadius: 8, padding: 12, fontSize: 11, fontFamily: "monospace", whiteSpace: "pre-wrap", wordBreak: "break-all", marginTop: 8, maxHeight: 200, overflowY: "auto", color: "#888" }}>{buildCSV()}</div>}
     </div>
   );
 }
@@ -475,7 +478,7 @@ function CiCueBlock({ cue }) {
 }
 
 // ── TRAINING TAB ──────────────────────────────────────────────
-function TrainingTab({ config, onSessionSaved, lastSessionSets }) {
+function TrainingTab({ config, onSessionSaved, lastSessionSets, tabColor, tabBg }) {
   var [session, setSession] = useState(null); var [phase, setPhase] = useState("loader");
   var [wuChecked, setWuChecked] = useState({}); var [logs, setLogs] = useState({});
   var [trainState, setTrainState] = useState({ bk: "", ei: 0, si: 0, round: 0 });
@@ -683,12 +686,19 @@ function TrainingTab({ config, onSessionSaved, lastSessionSets }) {
 
   return (
     <div>
-      {session && <div style={{ fontSize: 11, color: "#888", marginBottom: 12 }}>{session.date}</div>}
-      <div style={{ display: "flex", gap: 6, marginBottom: 14, overflowX: "auto", paddingBottom: 4 }}>
-        {phases.map(function(p) { return <button key={p} onClick={function() { setPhase(p); }} style={{ padding: "6px 12px", borderRadius: 20, border: "0.5px solid #ccc", background: phase === p ? "#1a1a1a" : "#fff", color: phase === p ? "#fff" : "#666", fontSize: 12, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}>{phaseLabels[p]}</button>; })}
+      <div style={{ background: "#1c1c1c", border: "1px solid #2a2a2a", borderRadius: 12, overflow: "hidden", marginBottom: 12 }}>
+        <div style={{ padding: "12px 14px", borderBottom: "1px solid #222", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{ fontSize: 15, fontWeight: 700, color: tabColor }}>Training</span>
+          {session && <span style={{ fontSize: 11, color: "#555" }}>{session.date}</span>}
+        </div>
+        <div style={{ padding: "10px 14px", overflowX: "auto" }}>
+          <div style={{ display: "flex", gap: 6, paddingBottom: 2 }}>
+            {phases.map(function(p) { return <button key={p} onClick={function() { setPhase(p); }} style={{ padding: "6px 12px", borderRadius: 20, border: "1px solid #2a2a2a", background: phase === p ? tabColor : "#161616", color: phase === p ? "#111" : "#555", fontSize: 12, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0, fontWeight: phase === p ? 600 : 400 }}>{phaseLabels[p]}</button>; })}
+          </div>
+        </div>
       </div>
-      {phase === "loader" && <Card><CardHdr left="Session config" /><div style={{ padding: 14 }}>{session && <div style={{ background: "#dcfce7", borderRadius: 8, padding: "8px 12px", fontSize: 12, color: "#166534", marginBottom: 12 }}>Loaded: {session.title} - {session.date}</div>}<textarea style={{ width: "100%", height: 100, padding: 10, border: "0.5px solid #ccc", borderRadius: 8, fontSize: 12, fontFamily: "monospace", resize: "vertical", marginBottom: 8 }} value={configInput} onChange={function(e) { setConfigInput(e.target.value); }} placeholder='{"title":"...","dateISO":"2026-04-04","blocks":[...]}' /><ActionBtn onClick={function() { setConfigErr(""); try { applySession(JSON.parse(configInput), true); } catch(e) { setConfigErr("Invalid JSON."); } }}>Load session</ActionBtn>{session && <ActionBtn secondary onClick={function() { setPhase("warmup"); }}>Start latest session</ActionBtn>}{configErr && <div style={{ fontSize: 12, color: "#dc2626", marginTop: 6 }}>{configErr}</div>}</div></Card>}
-      {phase === "warmup" && session && <Card><CardHdr left="Warm-up" right={<span style={{ fontSize: 12, color: "#aaa" }}>Est. {estDur} min</span>} /><div>{session.warmup.map(function(w, i) { return <div key={i} style={{ padding: "10px 14px", borderBottom: i < session.warmup.length - 1 ? "0.5px solid #eee" : "none", display: "flex", justifyContent: "space-between", alignItems: "center" }}><div><div style={{ fontSize: 13, fontWeight: 500, textDecoration: wuChecked[i] ? "line-through" : "none", color: wuChecked[i] ? "#bbb" : "#1a1a1a" }}>{w.name}</div><div style={{ fontSize: 11, color: "#999", marginTop: 2 }}>{w.dur} · {w.note}</div></div><button style={{ width: 30, height: 30, borderRadius: "50%", border: "0.5px solid #ccc", background: wuChecked[i] ? "#2d7a4f" : "#fff", color: wuChecked[i] ? "#fff" : "#ccc", cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={function() { setWuChecked(function(c) { var n = Object.assign({}, c); n[i] = !c[i]; return n; }); }}>✓</button></div>; })}</div><div style={{ padding: "10px 14px" }}>{sessionStartTime ? <div style={{ fontSize: 12, color: "#2d7a4f", fontWeight: 500, textAlign: "center", padding: "8px 0" }}>⏱ Session timer running</div> : <button onClick={function() { setSessionStartTime(Date.now()); }} style={{ width: "100%", padding: 13, background: "#2d7a4f", color: "#fff", border: "none", borderRadius: 10, fontSize: 14, fontWeight: 500, cursor: "pointer" }}>Start session timer</button>}</div></Card>}
+      {phase === "loader" && <Card><CardHdr color={tabColor} left="Config" /><div style={{ padding: 14 }}>{session && <div style={{ background: "#0d2018", borderRadius: 8, padding: "8px 12px", fontSize: 12, color: "#4caf7d", marginBottom: 12, border: "1px solid #1a3a20" }}>Loaded: {session.title} - {session.date}</div>}<textarea style={{ width: "100%", height: 100, padding: 10, border: "1px solid #2a2a2a", borderRadius: 8, fontSize: 12, fontFamily: "monospace", resize: "vertical", marginBottom: 8, background: "#1c1c1c", color: "#f0ede8" }} value={configInput} onChange={function(e) { setConfigInput(e.target.value); }} placeholder='{"title":"...","dateISO":"2026-04-04","blocks":[...]}' /><ActionBtn onClick={function() { setConfigErr(""); try { applySession(JSON.parse(configInput), true); } catch(e) { setConfigErr("Invalid JSON."); } }}>Load session</ActionBtn>{session && <ActionBtn secondary onClick={function() { setPhase("warmup"); }}>Start latest session</ActionBtn>}{configErr && <div style={{ fontSize: 12, color: "#dc2626", marginTop: 6 }}>{configErr}</div>}</div></Card>}
+      {phase === "warmup" && session && <Card><CardHdr color={tabColor} left="Warm-up" right={<span style={{ fontSize: 12, color: "#555" }}>Est. {estDur} min</span>} /><div>{session.warmup.map(function(w, i) { return <div key={i} style={{ padding: "10px 14px", borderBottom: i < session.warmup.length - 1 ? "0.5px solid #eee" : "none", display: "flex", justifyContent: "space-between", alignItems: "center" }}><div><div style={{ fontSize: 13, fontWeight: 500, textDecoration: wuChecked[i] ? "line-through" : "none", color: wuChecked[i] ? "#444" : "#f0ede8" }}>{w.name}</div><div style={{ fontSize: 11, color: "#444", marginTop: 2 }}>{w.dur} · {w.note}</div></div><button style={{ width: 30, height: 30, borderRadius: "50%", border: "0.5px solid #ccc", background: wuChecked[i] ? "#4caf7d" : "#252525", color: wuChecked[i] ? "#111" : "#333", cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={function() { setWuChecked(function(c) { var n = Object.assign({}, c); n[i] = !c[i]; return n; }); }}>✓</button></div>; })}</div><div style={{ padding: "10px 14px" }}>{sessionStartTime ? <div style={{ fontSize: 12, color: tabColor, fontWeight: 500, textAlign: "center", padding: "8px 0" }}>⏱ Session timer running</div> : <button onClick={function() { setSessionStartTime(Date.now()); }} style={{ width: "100%", padding: 13, background: tabColor, color: "#111", border: "none", borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: "pointer" }}>Start session timer</button>}</div></Card>}
       {session && session.blocks.map(function(b) {
         if (phase !== b.id) return null;
         var bk = trainState.bk, ei = trainState.ei, si = trainState.si;
@@ -765,14 +775,14 @@ function TrainingTab({ config, onSessionSaved, lastSessionSets }) {
           </div>
         </div>;
       })}
-      {phase === "complete" && <Card><CardHdr left="Session complete" /><div style={{ padding: 16, textAlign: "center" }}><div style={{ fontSize: 40, marginBottom: 12 }}>✓</div>{dur && <div style={{ fontSize: 13, color: "#888", marginBottom: 8 }}>Duration: {dur} min</div>}<SyncStatus status={syncStatus} /><ActionBtn onClick={function() { setPhase("summary"); }}>View summary</ActionBtn></div></Card>}
+      {phase === "complete" && <Card><CardHdr color={tabColor} left="Done" /><div style={{ padding: 16, textAlign: "center" }}><div style={{ fontSize: 40, marginBottom: 12, color: tabColor }}>✓</div>{dur && <div style={{ fontSize: 13, color: "#555", marginBottom: 8 }}>Duration: {dur} min</div>}<SyncStatus status={syncStatus} /><ActionBtn onClick={function() { setPhase("summary"); }}>View summary</ActionBtn></div></Card>}
       {phase === "summary" && session && <TrainingSummary session={session} logs={logs} wl={wl} estDur={estDur} dur={dur} buildCSV={buildCSV} syncStatus={syncStatus} />}
     </div>
   );
 }
 
 // ── NUTRITION TAB ─────────────────────────────────────────────
-function NutritionTab({ config, todayLogs, onAddMeal, onDeleteMeal, isTrainingDay, calOverride }) {
+function NutritionTab({ config, todayLogs, onAddMeal, onDeleteMeal, isTrainingDay, calOverride, tabColor, tabBg }) {
   var [meal, setMeal] = useState("Breakfast"); var [description, setDescription] = useState("");
   var [isEatOut, setIsEatOut] = useState(false); var [restaurantType, setRestaurantType] = useState("");
   var [status, setStatus] = useState(null); var [nutTab, setNutTab] = useState("log");
@@ -794,34 +804,34 @@ var MAIN_MEALS = ["Breakfast", "Lunch", "Dinner"];
   return (
     <div>
       <Card>
-        <CardHdr left="Nutrition — Today" right={<span style={{ fontSize: 11, color: "#aaa" }}>{calOverride ? "Override" : isTrainingDay ? "Training" : "Rest"} day</span>} />
+        <CardHdr color={tabColor} left="Nutrition" right={<span style={{ fontSize: 11, color: "#aaa" }}>{calOverride ? "Override" : isTrainingDay ? "Training" : "Rest"} day</span>} />
         <div style={{ padding: 14 }}>
           <MacroBar label="Calories" value={totals.cal} goal={calGoal} color="#a5f3fc" />
           <MacroBar label="Protein" value={totals.protein} goal={config.nutrition.protein} color="#86efac" />
           <MacroBar label="Carbs" value={totals.carbs} goal={carbGoal} color="#fde68a" />
           <MacroBar label="Fat" value={totals.fat} goal={fatGoal} color="#fca5a5" />
-          <div style={{ marginTop: 8, fontSize: 13, fontWeight: 500, color: remaining >= 0 ? "#166534" : "#dc2626" }}>{remaining >= 0 ? remaining + " kcal remaining" : Math.abs(remaining) + " kcal over goal"}</div>
+          <div style={{ marginTop: 8, fontSize: 13, fontWeight: 500, color: remaining >= 0 ? tabColor : "#e05050" }}>{remaining >= 0 ? remaining + " kcal remaining" : Math.abs(remaining) + " kcal over goal"}</div>
           <div style={{ marginTop: 8, display: "flex", gap: 10 }}>
-            {[["Meals", todayLogs.length], ["Home", homeCount], ["Eat-out", eatOutCount]].map(function(item) { return <div key={item[0]} style={{ flex: 1, background: "#f5f5f3", borderRadius: 8, padding: "5px 8px", textAlign: "center" }}><div style={{ fontSize: 15, fontWeight: 500 }}>{item[1]}</div><div style={{ fontSize: 10, color: "#aaa" }}>{item[0]}</div></div>; })}
+            {[["Meals", todayLogs.length], ["Home", homeCount], ["Eat-out", eatOutCount]].map(function(item) { return <div key={item[0]} style={{ flex: 1, background: tabBg, borderRadius: 8, padding: "5px 8px", textAlign: "center", border: "1px solid " + tabColor + "22" }}><div style={{ fontSize: 15, fontWeight: 600, color: "#f0ede8" }}>{item[1]}</div><div style={{ fontSize: 10, color: "#444" }}>{item[0]}</div></div>; })}
           </div>
         </div>
       </Card>
       <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
-        {[["log","Log Food"],["meals","Meals"]].map(function(item) { return <button key={item[0]} onClick={function() { setNutTab(item[0]); }} style={{ flex: 1, padding: "8px 0", borderRadius: 10, border: "0.5px solid #ccc", cursor: "pointer", fontWeight: 500, fontSize: 13, background: nutTab === item[0] ? "#1a1a1a" : "#fff", color: nutTab === item[0] ? "#fff" : "#666" }}>{item[1]}</button>; })}
+        {[["log","Log Food"],["meals","Meals"]].map(function(item) { return <button key={item[0]} onClick={function() { setNutTab(item[0]); }} style={{ flex: 1, padding: "8px 0", borderRadius: 10, border: "0.5px solid #ccc", cursor: "pointer", fontWeight: 500, fontSize: 13, background: nutTab === item[0] ? tabColor : "#1c1c1c", color: nutTab === item[0] ? "#111" : "#555" }}>{item[1]}</button>; })}
       </div>
       {nutTab === "log" && (
         <Card><div style={{ padding: 14 }}>
           <div style={{ fontSize: 11, color: "#999", fontWeight: 500, marginBottom: 4 }}>MEAL</div>
-          <select value={meal} onChange={function(e) { setMeal(e.target.value); }} style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "0.5px solid #ccc", margin: "4px 0 12px", fontSize: 14 }}>{MEALS.map(function(m) { return <option key={m}>{m}</option>; })}</select>
+          <select value={meal} onChange={function(e) { setMeal(e.target.value); }} style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid #2a2a2a", margin: "4px 0 12px", fontSize: 14, background: "#1c1c1c", color: "#f0ede8" }}>{MEALS.map(function(m) { return <option key={m}>{m}</option>; })}</select>
           <div style={{ display: "flex", gap: 8, marginBottom: 12, alignItems: "center" }}>
             <div style={{ fontSize: 13, fontWeight: 500, flex: 1 }}>Meal type</div>
             <div style={{ display: "flex", background: "#f0f0ee", borderRadius: 8, padding: 2 }}>
-              {[["Home", false], ["Eat-out", true]].map(function(item) { return <button key={item[0]} onClick={function() { setIsEatOut(item[1]); if (!item[1]) setRestaurantType(""); }} style={{ padding: "6px 14px", borderRadius: 6, border: "none", background: isEatOut === item[1] ? "#1a1a1a" : "transparent", color: isEatOut === item[1] ? "#fff" : "#666", fontSize: 13, fontWeight: 500, cursor: "pointer" }}>{item[0]}</button>; })}
+              {[["Home", false], ["Eat-out", true]].map(function(item) { return <button key={item[0]} onClick={function() { setIsEatOut(item[1]); if (!item[1]) setRestaurantType(""); }} style={{ padding: "6px 14px", borderRadius: 6, border: "none", background: isEatOut === item[1] ? tabColor : "transparent", color: isEatOut === item[1] ? "#111" : "#555", fontSize: 13, fontWeight: 500, cursor: "pointer" }}>{item[0]}</button>; })}
             </div>
           </div>
-          {isEatOut && <div style={{ marginBottom: 12 }}><div style={{ fontSize: 11, color: "#999", fontWeight: 500, marginBottom: 4 }}>RESTAURANT TYPE (optional)</div><input value={restaurantType} onChange={function(e) { setRestaurantType(e.target.value); }} placeholder="e.g. Italian sit-down, sushi, fast food..." style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "0.5px solid #ccc", fontSize: 14, fontFamily: "inherit" }} /></div>}
+          {isEatOut && <div style={{ marginBottom: 12 }}><div style={{ fontSize: 11, color: "#999", fontWeight: 500, marginBottom: 4 }}>RESTAURANT TYPE (optional)</div><input value={restaurantType} onChange={function(e) { setRestaurantType(e.target.value); }} placeholder="e.g. Italian sit-down, sushi, fast food..." style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid #2a2a2a", fontSize: 14, fontFamily: "inherit", background: "#1c1c1c", color: "#f0ede8" }} /></div>}
           <div style={{ fontSize: 11, color: "#999", fontWeight: 500, marginBottom: 4 }}>DESCRIBE WHAT YOU ATE</div>
-          <textarea value={description} onChange={function(e) { setDescription(e.target.value); }} placeholder="e.g. spaghetti al pomodoro con parmigiano..." rows={3} style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "0.5px solid #ccc", margin: "4px 0 12px", fontSize: 14, resize: "vertical", fontFamily: "inherit" }} />
+          <textarea value={description} onChange={function(e) { setDescription(e.target.value); }} placeholder="e.g. spaghetti al pomodoro con parmigiano..." rows={3} style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid #2a2a2a", margin: "4px 0 12px", fontSize: 14, resize: "vertical", fontFamily: "inherit", background: "#1c1c1c", color: "#f0ede8" }} />
           {status && status.type === "loading" ? <ActionBtn onClick={function() { setStatus(null); }}>Cancel</ActionBtn> : <ActionBtn disabled={!description.trim()} onClick={async function() { setStatus({ type: "loading" }); try { setStatus({ type: "preview", data: await estimateFood(description, isEatOut, restaurantType) }); } catch(e) { setStatus({ type: "error", msg: e.message }); } }}>Estimate with AI</ActionBtn>}
           {status && status.type === "loading" && <div style={{ marginTop: 10, color: "#888", fontSize: 13, textAlign: "center" }}>Analysing...</div>}
           {status && status.type === "error" && <div style={{ marginTop: 10, color: "#dc2626", fontSize: 13 }}>Error: {status.msg}</div>}
@@ -830,12 +840,12 @@ var MAIN_MEALS = ["Breakfast", "Lunch", "Dinner"];
               <div style={{ fontWeight: 500, fontSize: 15, marginBottom: 4 }}>{status.data.name}</div>
               <div style={{ fontSize: 11, color: "#888", marginBottom: 8 }}>{isEatOut ? "Eat-out" : "Home"}{restaurantType ? " · " + restaurantType : ""}</div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 6, marginBottom: 10 }}>
-                {[["Kcal", status.data.cal],["Protein", status.data.protein],["Carbs", status.data.carbs],["Fat", status.data.fat]].map(function(item) { return <div key={item[0]} style={{ background: "#fff", borderRadius: 8, padding: "6px 4px", textAlign: "center" }}><div style={{ fontWeight: 700, fontSize: 15 }}>{item[1]}</div><div style={{ fontSize: 10, color: "#9ca3af" }}>{item[0]}</div></div>; })}
+                {[["Kcal", status.data.cal],["Protein", status.data.protein],["Carbs", status.data.carbs],["Fat", status.data.fat]].map(function(item) { return <div key={item[0]} style={{ background: "#161616", borderRadius: 8, padding: "6px 4px", textAlign: "center", border: "1px solid #2a2a2a" }}><div style={{ fontWeight: 700, fontSize: 15, color: "#f0ede8" }}>{item[1]}</div><div style={{ fontSize: 10, color: "#444" }}>{item[0]}</div></div>; })}
               </div>
              <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 12, background: "#f9f9f7", borderRadius: 6, padding: "6px 8px", fontFamily: "monospace" }}>{status.data.reasoning}</div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 <button onClick={function() { setStatus(null); }} style={{ flex: 1, padding: "8px 0", background: "#e5e7eb", color: "#374151", border: "none", borderRadius: 8, fontSize: 13, cursor: "pointer" }}>Cancel</button>
-                <button onClick={function() { addEntry(status.data); setStatus(null); }} style={{ flex: 2, padding: "8px 0", background: "#2d7a4f", color: "#fff", border: "none", borderRadius: 8, fontWeight: 500, cursor: "pointer" }}>Add to log</button>
+                <button onClick={function() { addEntry(status.data); setStatus(null); }} style={{ flex: 2, padding: "8px 0", background: tabColor, color: "#111", border: "none", borderRadius: 8, fontWeight: 700, cursor: "pointer" }}>Add to log</button>
               </div>
             </div>
           )}
@@ -846,9 +856,9 @@ var MAIN_MEALS = ["Breakfast", "Lunch", "Dinner"];
           {!todayLogs.length && <div style={{ textAlign: "center", color: "#aaa", marginTop: 40, fontSize: 14 }}>Nothing logged today yet.</div>}
           {MEALS.map(function(m) {
             var entries = todayLogs.filter(function(e) { return e.meal_type === m; }); if (!entries.length) return null;
-            return <div key={m} style={{ marginBottom: 14 }}><div style={{ fontWeight: 500, fontSize: 11, color: "#888", marginBottom: 6, textTransform: "uppercase", letterSpacing: 1 }}>{m}</div>{entries.map(function(e) { return <div key={e.id} style={{ background: "#fff", border: "0.5px solid #ddd", borderRadius: 10, marginBottom: 6 }}><div style={{ padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}><div><div style={{ fontWeight: 500, fontSize: 14 }}>{e.food}{e.is_eat_out ? <span style={{ fontSize: 10, background: "#fef9c3", color: "#854d0e", borderRadius: 4, padding: "1px 5px", marginLeft: 4 }}>eat-out</span> : <span style={{ fontSize: 10, background: "#dcfce7", color: "#166534", borderRadius: 4, padding: "1px 5px", marginLeft: 4 }}>home</span>}</div><div style={{ fontSize: 12, color: "#aaa" }}>P: {e.protein}g · C: {e.carbs}g · F: {e.fat}g{e.restaurant_type ? " · " + e.restaurant_type : ""}</div></div><div style={{ display: "flex", alignItems: "center", gap: 10 }}><span style={{ fontWeight: 500 }}>{e.cal || e.calories} kcal</span><button onClick={function() { onDeleteMeal(e.id); }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 16, color: "#dc2626" }}>×</button></div></div></div>; })}</div>;
+            return <div key={m} style={{ marginBottom: 14 }}><div style={{ fontWeight: 500, fontSize: 11, color: "#888", marginBottom: 6, textTransform: "uppercase", letterSpacing: 1 }}>{m}</div>{entries.map(function(e) { return <div key={e.id} style={{ background: "#1c1c1c", border: "1px solid #2a2a2a", borderRadius: 10, marginBottom: 6 }}><div style={{ padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}><div><div style={{ fontWeight: 500, fontSize: 14 }}>{e.food}{e.is_eat_out ? <span style={{ fontSize: 10, background: "#fef9c3", color: "#854d0e", borderRadius: 4, padding: "1px 5px", marginLeft: 4 }}>eat-out</span> : <span style={{ fontSize: 10, background: "#dcfce7", color: "#166534", borderRadius: 4, padding: "1px 5px", marginLeft: 4 }}>home</span>}</div><div style={{ fontSize: 12, color: "#aaa" }}>P: {e.protein}g · C: {e.carbs}g · F: {e.fat}g{e.restaurant_type ? " · " + e.restaurant_type : ""}</div></div><div style={{ display: "flex", alignItems: "center", gap: 10 }}><span style={{ fontWeight: 500 }}>{e.cal || e.calories} kcal</span><button onClick={function() { onDeleteMeal(e.id); }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 16, color: "#dc2626" }}>×</button></div></div></div>; })}</div>;
           })}
-          {todayLogs.length > 0 && <div style={{ background: "#f5f5f3", border: "0.5px solid #ddd", borderRadius: 10, padding: "10px 14px" }}><div style={{ fontWeight: 500, fontSize: 13 }}>Totals</div><div style={{ fontSize: 12, color: "#888", marginTop: 4 }}>{totals.cal} kcal · {totals.protein}g P · {totals.carbs}g C · {totals.fat}g F</div><div style={{ fontSize: 12, color: "#888", marginTop: 2 }}>{todayLogs.length} meals · {homeCount} home · {eatOutCount} eat-out</div></div>}
+          {todayLogs.length > 0 && <div style={{ background: "#161616", border: "1px solid #2a2a2a", borderRadius: 10, padding: "10px 14px" }}><div style={{ fontWeight: 500, fontSize: 13 }}>Totals</div><div style={{ fontSize: 12, color: "#888", marginTop: 4 }}>{totals.cal} kcal · {totals.protein}g P · {totals.carbs}g C · {totals.fat}g F</div><div style={{ fontSize: 12, color: "#888", marginTop: 2 }}>{todayLogs.length} meals · {homeCount} home · {eatOutCount} eat-out</div></div>}
         </div>
       )}
     </div>
@@ -859,18 +869,18 @@ var MAIN_MEALS = ["Breakfast", "Lunch", "Dinner"];
 
 function dayCellBg(iso, burnLogs, dailySummaryLogs, correction) {
   var burn = burnLogs[iso];
-  if (!burn) return "#e8e8e6"; // grey — no burn data
+  if (!burn) return null;
   var summary = dailySummaryLogs[iso];
-  if (!summary) return "#e8e8e6";
+  if (!summary) return null;
   var corrected = Math.round(burn * correction);
   var balance = (summary.calories || 0) - corrected;
-  if (balance <= -300) return "#166534"; // dark green
-  if (balance <= 0)    return "#bbf7d0"; // light green
-  if (balance <= 300)  return "#fde68a"; // amber
-  return "#fca5a5";                       // red
+  if (balance <= -300) return { bg: "#0a2818", border: "#4caf7d", color: "#4caf7d", bold: true };
+  if (balance <= 0)    return { bg: "#0a1c2a", border: "#6699cc", color: "#6699cc", bold: false };
+  if (balance <= 300)  return { bg: "#2a1a00", border: "#e8a040", color: "#e8a040", bold: false };
+  return { bg: "#2a0d0d", border: "#e05050", color: "#e05050", bold: true };
 }
 
-function DayDetail({ iso, burnLogs, onSaveBurn, weekSessions, activities, dailySummaryLogs, correction, config, omronLogs, onSaveOmron }) {
+function DayDetail({ iso, burnLogs, onSaveBurn, weekSessions, activities, dailySummaryLogs, correction, config, omronLogs, onSaveOmron, tabColor, tabBg }) {
   var existing = burnLogs[iso] ? String(burnLogs[iso]) : "";
   var [burnInput, setBurnInput] = useState(existing);
   var [saved, setSaved] = useState(false);
@@ -904,15 +914,15 @@ function DayDetail({ iso, burnLogs, onSaveBurn, weekSessions, activities, dailyS
   var label = new Date(iso + "T12:00:00").toLocaleDateString("en", { weekday: "long", month: "long", day: "numeric" });
   var calGoal = session ? config.nutrition.caloriesTraining : config.nutrition.caloriesRest;
   return (
-    <div style={{ marginTop: 14, background: "#fff", border: "0.5px solid #ddd", borderRadius: 12, overflow: "hidden" }}>
-      <div style={{ background: "#1a1a1a", color: "#fff", padding: "10px 14px", fontSize: 13, fontWeight: 500, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+    <div style={{ marginTop: 14, background: "#1c1c1c", border: "1px solid #2a2a2a", borderRadius: 12, overflow: "hidden" }}>
+      <div style={{ background: "#1c1c1c", color: "#f0ede8", padding: "14px 14px 12px", fontSize: 17, fontWeight: 700, display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid #2a2a2a" }}>
         <span>{label}</span>
-        <span style={{ fontSize: 11, color: "#aaa" }}>{session ? "Training day" : "Rest day"}</span>
+        <span style={{ fontSize: 11, color: "#444" }}>{session ? "Training day" : "Rest day"}</span>
       </div>
-      <div style={{ padding: 14 }}>
+      <div style={{ padding: "10px 14px 14px", background: "#1c1c1c" }}>
         {session && (
-          <div style={{ background: "#f5f5f3", borderRadius: 8, padding: "10px 12px", marginBottom: 14 }}>
-            <div style={{ fontSize: 12, fontWeight: 500, marginBottom: 6 }}>{session.title}</div>
+          <div style={{ background: "#252525", borderRadius: 8, padding: "10px 12px", marginBottom: 14 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6, color: "#f0ede8" }}>{session.title}</div>
             <div style={{ display: "flex", gap: 10 }}>
               {[["difficulty", (session.difficulty_kg || "-") + " kg"], ["completion", (session.completion_pct || "-") + "%"], ["duration", (session.actual_duration || "-") + " min"]].map(function(item) {
                 return <div key={item[0]} style={{ flex: 1, textAlign: "center" }}><div style={{ fontSize: 15, fontWeight: 500 }}>{item[1]}</div><div style={{ fontSize: 10, color: "#aaa" }}>{item[0]}</div></div>;
@@ -921,14 +931,14 @@ function DayDetail({ iso, burnLogs, onSaveBurn, weekSessions, activities, dailyS
           </div>
         )}
         {activity && (
-          <div style={{ background: "#f5f5f3", borderRadius: 8, padding: "10px 12px", marginBottom: 14 }}>
-            <div style={{ fontSize: 12, fontWeight: 500, marginBottom: 6 }}>{activity.type}</div>
+          <div style={{ background: "#252525", borderRadius: 8, padding: "10px 12px", marginBottom: 14 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6, color: "#f0ede8" }}>{activity.type}</div>
             <div style={{ display: "flex", gap: 10 }}>
               {[["duration", (activity.duration || "-") + " min"], ["burned", (activity.calories_burned || "-") + " kcal"], ["avg HR", (activity.avg_hr || "-") + " bpm"]].map(function(item) {
                 return <div key={item[0]} style={{ flex: 1, textAlign: "center" }}><div style={{ fontSize: 15, fontWeight: 500 }}>{item[1]}</div><div style={{ fontSize: 10, color: "#aaa" }}>{item[0]}</div></div>;
               })}
             </div>
-            {activity.notes && <div style={{ fontSize: 11, color: "#888", marginTop: 6, fontStyle: "italic" }}>{activity.notes}</div>}
+            {activity.notes && <div style={{ fontSize: 11, color: "#555", marginTop: 6, fontStyle: "italic" }}>{activity.notes}</div>}
           </div>
         )}
         {summary && (
@@ -939,41 +949,41 @@ function DayDetail({ iso, burnLogs, onSaveBurn, weekSessions, activities, dailyS
             <MacroBar label="Fat"      value={summary.fat      || 0} goal={session ? config.nutrition.fatTraining  : config.nutrition.fatRest}  color="#fca5a5" />
           </div>
         )}
-        <div style={{ borderTop: "0.5px solid #eee", paddingTop: 14, marginBottom: 14 }}>
-          <div style={{ fontSize: 11, color: "#999", fontWeight: 500, marginBottom: 10 }}>OMRON READING</div>
+        <div style={{ paddingTop: 14, marginBottom: 14 }}>
+          <div style={{ fontSize: 11, color: "#444", fontWeight: 600, marginBottom: 10, textTransform: "uppercase", letterSpacing: ".06em" }}>Omron Reading</div>
 <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 10 }}>
   <div>
-    <div style={{ fontSize: 10, color: "#aaa", fontWeight: 500, marginBottom: 4 }}>WEIGHT (KG)</div>
+    <div style={{ fontSize: 10, color: "#444", fontWeight: 600, marginBottom: 4 }}>Weight (kg)</div>
     <Stepper value={weight} onChange={function(v) { setWeight(v); setOmronSaved(false); }} step={0.1} placeholder="kg" />
   </div>
   <div>
-    <div style={{ fontSize: 10, color: "#aaa", fontWeight: 500, marginBottom: 4 }}>BODY FAT %</div>
+    <div style={{ fontSize: 10, color: "#444", fontWeight: 600, marginBottom: 4 }}>Body Fat %</div>
     <Stepper value={bf} onChange={function(v) { setBf(v); setOmronSaved(false); }} step={0.1} placeholder="%" />
   </div>
   <div>
-    <div style={{ fontSize: 10, color: "#aaa", fontWeight: 500, marginBottom: 4 }}>VISCERAL FAT (1–59)</div>
+    <div style={{ fontSize: 10, color: "#444", fontWeight: 600, marginBottom: 4 }}>Visceral Fat (1–59)</div>
     <Stepper value={visceralFat} onChange={function(v) { setVisceralFat(v); setOmronSaved(false); }} step={1} placeholder="1–59" />
   </div>
 </div>
           {leanMass && fatMass && (
             <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
               {[["Lean mass", leanMass + " kg"], ["Fat mass", fatMass + " kg"]].map(function(item) {
-                return <div key={item[0]} style={{ flex: 1, background: "#f5f5f3", borderRadius: 8, padding: "7px 10px", textAlign: "center" }}>
+                return <div key={item[0]} style={{ flex: 1, background: (tabBg || "#161616"), borderRadius: 8, padding: "7px 10px", textAlign: "center", border: "1px solid " + (tabColor || "#444") + "33" }}>
                   <div style={{ fontSize: 14, fontWeight: 500 }}>{item[1]}</div>
                   <div style={{ fontSize: 10, color: "#aaa" }}>{item[0]}</div>
                 </div>;
               })}
             </div>
           )}
-          <button onClick={saveOmron} style={{ width: "100%", padding: 12, background: omronSaved ? "#2d7a4f" : "#1a1a1a", color: "#fff", border: "none", borderRadius: 10, fontSize: 13, fontWeight: 500, cursor: "pointer" }}>{omronSaved ? "Saved" : "Save Omron reading"}</button>
+          <button onClick={saveOmron} style={{ width: "100%", padding: 12, background: omronSaved ? "#4caf7d" : (tabColor || "#e8a040"), color: "#111", border: "none", borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>{omronSaved ? "Saved" : "Save Omron reading"}</button>
         </div>
-        <div style={{ borderTop: "0.5px solid #eee", marginTop: 14, paddingTop: 14 }}>
-          <div style={{ fontSize: 11, color: "#999", fontWeight: 500, marginBottom: 8 }}>CALORIES BURNED (PIXEL WATCH — RAW)</div>
+        <div style={{ marginTop: 14, paddingTop: 14 }}>
+          <div style={{ fontSize: 11, color: "#444", fontWeight: 600, marginBottom: 8, textTransform: "uppercase", letterSpacing: ".06em" }}>Calories Burned (Pixel Watch — Raw)</div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <input type="number" inputMode="numeric" value={burnInput} onChange={function(e) { setBurnInput(e.target.value); setSaved(false); }} placeholder="e.g. 2680" style={{ flex: 1, padding: "10px 12px", border: "0.5px solid #ccc", borderRadius: 8, fontSize: 15, fontWeight: 500 }} />
-            <button onClick={saveBurn} style={{ padding: "10px 18px", background: "#1a1a1a", color: "#fff", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: "pointer" }}>{saved ? "Saved" : "Save"}</button>
+            <input type="number" inputMode="numeric" value={burnInput} onChange={function(e) { setBurnInput(e.target.value); setSaved(false); }} placeholder="e.g. 2680" style={{ flex: 1, padding: "10px 12px", border: "1px solid #2a2a2a", borderRadius: 8, fontSize: 15, fontWeight: 500, background: "#252525", color: "#f0ede8" }} />
+            <button onClick={saveBurn} style={{ padding: "10px 18px", background: (tabColor || "#e8a040"), color: "#111", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>{saved ? "Saved" : "Save"}</button>
           </div>
-          {correctedBurn && <div style={{ marginTop: 8, fontSize: 12, color: "#888" }}>Corrected: <strong>{correctedBurn} kcal</strong> (×{correction})</div>}
+          {correctedBurn && <div style={{ marginTop: 8, fontSize: 12, color: "#555" }}>Corrected: <strong>{correctedBurn} kcal</strong> (×{correction})</div>}
         </div>
       </div>
     </div>
@@ -994,10 +1004,10 @@ function WeekDetail({ weekKey, prevWeeklyRow, weeklyRow }) {
   var eatOutPct  = totalMeals > 0 ? Math.round((wr.eat_out_meals / totalMeals) * 100) : null;
   var hasBodyComp = wr.avg_bodyweight != null || wr.avg_body_fat != null;
   return (
-    <div style={{ background: "#fff", border: "0.5px solid #ddd", borderTop: "none", borderRadius: "0 0 10px 10px", padding: 14, marginBottom: 8 }}>
+    <div style={{ background: "#fff", border: "1px solid #2a2a2a", borderTop: "none", borderRadius: "0 0 10px 10px", padding: 14, marginBottom: 8, background: "#161616" }}>
       {wr.week_key && (
         <div style={{ marginBottom: 14 }}>
-          <div style={{ fontSize: 11, color: "#999", fontWeight: 500, marginBottom: 10 }}>WEEK RECAP</div>
+          <div style={{ fontSize: 11, color: "#444", fontWeight: 600, marginBottom: 10, textTransform: "uppercase", letterSpacing: ".06em" }}>Week Recap</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
             {[
               ["Sessions", wr.sessions || 0],
@@ -1005,28 +1015,28 @@ function WeekDetail({ weekKey, prevWeeklyRow, weeklyRow }) {
               ["Avg energy balance", wr.avg_energy_balance != null ? wr.avg_energy_balance + " kcal" : "-"],
               ["Eat-out", eatOutPct !== null ? eatOutPct + "%" : "-"]
             ].map(function(item) {
-              return <div key={item[0]} style={{ background: "#f5f5f3", borderRadius: 8, padding: "8px 10px", textAlign: "center" }}>
-                <div style={{ fontSize: 15, fontWeight: 500 }}>{item[1]}</div>
-                <div style={{ fontSize: 10, color: "#aaa" }}>{item[0]}</div>
+              return <div key={item[0]} style={{ background: "#1c1c1c", borderRadius: 8, padding: "8px 10px", textAlign: "center", border: "1px solid #2a2a2a" }}>
+                <div style={{ fontSize: 15, fontWeight: 600, color: "#f0ede8" }}>{item[1]}</div>
+                <div style={{ fontSize: 10, color: "#444" }}>{item[0]}</div>
               </div>;
             })}
           </div>
         </div>
       )}
-      <div style={{ fontSize: 11, color: "#999", fontWeight: 500, marginBottom: 10 }}>BODY COMPOSITION — WEEKLY AVG</div>
+      <div style={{ fontSize: 11, color: "#444", fontWeight: 600, marginBottom: 10, textTransform: "uppercase", letterSpacing: ".06em" }}>Body Composition — Weekly Avg — WEEKLY AVG</div>
       {hasBodyComp ? (
         <div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 8 }}>
-            <div style={{ background: "#f5f5f3", borderRadius: 8, padding: "8px 10px", textAlign: "center" }}>
-              <div style={{ fontSize: 15, fontWeight: 500 }}>{wr.avg_bodyweight != null ? wr.avg_bodyweight + " kg" : "—"}{wr.avg_bodyweight != null && pw.avg_bodyweight != null ? delta(wr.avg_bodyweight, pw.avg_bodyweight, "kg", false) : null}</div>
+            <div style={{ background: "#1c1c1c", borderRadius: 8, padding: "8px 10px", textAlign: "center", border: "1px solid #2a2a2a" }}>
+              <div style={{ fontSize: 15, fontWeight: 600, color: "#f0ede8" }}>{wr.avg_bodyweight != null ? wr.avg_bodyweight + " kg" : "—"}{wr.avg_bodyweight != null && pw.avg_bodyweight != null ? delta(wr.avg_bodyweight, pw.avg_bodyweight, "kg", false) : null}</div>
               <div style={{ fontSize: 10, color: "#aaa" }}>avg weight</div>
             </div>
-            <div style={{ background: "#f5f5f3", borderRadius: 8, padding: "8px 10px", textAlign: "center" }}>
-              <div style={{ fontSize: 15, fontWeight: 500 }}>{wr.avg_body_fat != null ? wr.avg_body_fat + "%" : "—"}{wr.avg_body_fat != null && pw.avg_body_fat != null ? delta(wr.avg_body_fat, pw.avg_body_fat, "%", false) : null}</div>
+            <div style={{ background: "#1c1c1c", borderRadius: 8, padding: "8px 10px", textAlign: "center", border: "1px solid #2a2a2a" }}>
+              <div style={{ fontSize: 15, fontWeight: 600, color: "#f0ede8" }}>{wr.avg_body_fat != null ? wr.avg_body_fat + "%" : "—"}{wr.avg_body_fat != null && pw.avg_body_fat != null ? delta(wr.avg_body_fat, pw.avg_body_fat, "%", false) : null}</div>
               <div style={{ fontSize: 10, color: "#aaa" }}>avg BF%</div>
             </div>
-            <div style={{ background: "#f5f5f3", borderRadius: 8, padding: "8px 10px", textAlign: "center" }}>
-              <div style={{ fontSize: 15, fontWeight: 500 }}>{wr.avg_visceral_fat != null ? wr.avg_visceral_fat : "—"}{wr.avg_visceral_fat != null && pw.avg_visceral_fat != null ? delta(wr.avg_visceral_fat, pw.avg_visceral_fat, "", false) : null}</div>
+            <div style={{ background: "#1c1c1c", borderRadius: 8, padding: "8px 10px", textAlign: "center", border: "1px solid #2a2a2a" }}>
+              <div style={{ fontSize: 15, fontWeight: 600, color: "#f0ede8" }}>{wr.avg_visceral_fat != null ? wr.avg_visceral_fat : "—"}{wr.avg_visceral_fat != null && pw.avg_visceral_fat != null ? delta(wr.avg_visceral_fat, pw.avg_visceral_fat, "", false) : null}</div>
               <div style={{ fontSize: 10, color: "#aaa" }}>avg visceral</div>
             </div>
           </div>
@@ -1040,12 +1050,12 @@ function WeekDetail({ weekKey, prevWeeklyRow, weeklyRow }) {
             var prevFat  = (pw_w && pw_b) ? Math.round(pw_w * (pw_b / 100) * 10) / 10 : null;
             return (
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                <div style={{ background: "#f5f5f3", borderRadius: 8, padding: "8px 10px", textAlign: "center" }}>
-                  <div style={{ fontSize: 15, fontWeight: 500 }}>{lean + " kg"}{prevLean != null ? delta(lean, prevLean, "kg", false) : null}</div>
+                <div style={{ background: "#1c1c1c", borderRadius: 8, padding: "8px 10px", textAlign: "center", border: "1px solid #2a2a2a" }}>
+                  <div style={{ fontSize: 15, fontWeight: 600, color: "#f0ede8" }}>{lean + " kg"}{prevLean != null ? delta(lean, prevLean, "kg", false) : null}</div>
                   <div style={{ fontSize: 10, color: "#aaa" }}>avg lean mass</div>
                 </div>
-                <div style={{ background: "#f5f5f3", borderRadius: 8, padding: "8px 10px", textAlign: "center" }}>
-                  <div style={{ fontSize: 15, fontWeight: 500 }}>{fat + " kg"}{prevFat != null ? delta(fat, prevFat, "kg", true) : null}</div>
+                <div style={{ background: "#1c1c1c", borderRadius: 8, padding: "8px 10px", textAlign: "center", border: "1px solid #2a2a2a" }}>
+                  <div style={{ fontSize: 15, fontWeight: 600, color: "#f0ede8" }}>{fat + " kg"}{prevFat != null ? delta(fat, prevFat, "kg", true) : null}</div>
                   <div style={{ fontSize: 10, color: "#aaa" }}>avg fat mass</div>
                 </div>
               </div>
@@ -1053,13 +1063,13 @@ function WeekDetail({ weekKey, prevWeeklyRow, weeklyRow }) {
           })()}
         </div>
       ) : (
-        <div style={{ fontSize: 12, color: "#aaa", textAlign: "center", padding: "10px 0 6px" }}>No Omron readings logged this week yet.</div>
+        <div style={{ fontSize: 12, color: "#444", textAlign: "center", padding: "10px 0 6px" }}>No Omron readings logged this week yet.</div>
       )}
     </div>
   );
 }
 
-function CalendarTab({ config, burnLogs, onSaveBurn, weekSessions, allSessions, activities, omronLogs, onSaveOmron, dailySummaryLogs, weeklySummaryLogs }) {
+function CalendarTab({ config, burnLogs, onSaveBurn, weekSessions, allSessions, activities, omronLogs, onSaveOmron, dailySummaryLogs, weeklySummaryLogs, tabColor, tabBg }) {
   var [viewDate, setViewDate] = useState(new Date()); var [calView, setCalView] = useState("daily");
   var [selectedISO, setSelectedISO] = useState(null); var [selectedWeek, setSelectedWeek] = useState(null);
   var year = viewDate.getFullYear(), month = viewDate.getMonth();
@@ -1089,15 +1099,22 @@ function getWeeksInMonth() {
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-        <button onClick={function() { setViewDate(new Date(year, month - 1, 1)); setSelectedISO(null); setSelectedWeek(null); }} style={{ background: "none", border: "0.5px solid #ddd", borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontSize: 14 }}>{"<"}</button>
-        <span style={{ fontWeight: 500, fontSize: 14 }}>{viewDate.toLocaleDateString("en", { month: "long", year: "numeric" })}</span>
-        <button onClick={function() { setViewDate(new Date(year, month + 1, 1)); setSelectedISO(null); setSelectedWeek(null); }} style={{ background: "none", border: "0.5px solid #ddd", borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontSize: 14 }}>{">"}</button>
-      </div>
-      <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
-        {[["daily","Daily"],["weekly","Weekly"]].map(function(item) {
-          return <button key={item[0]} onClick={function() { setCalView(item[0]); setSelectedISO(null); setSelectedWeek(null); }} style={{ flex: 1, padding: "8px 0", borderRadius: 10, border: "0.5px solid #ccc", cursor: "pointer", fontWeight: 500, fontSize: 13, background: calView === item[0] ? "#1a1a1a" : "#fff", color: calView === item[0] ? "#fff" : "#666" }}>{item[1]}</button>;
-        })}
+      <div style={{ background: "#1c1c1c", border: "1px solid #2a2a2a", borderRadius: 12, overflow: "hidden", marginBottom: 12 }}>
+        <div style={{ padding: "12px 14px", borderBottom: "1px solid #222" }}>
+          <span style={{ fontSize: 15, fontWeight: 700, color: tabColor }}>Calendar</span>
+        </div>
+        <div style={{ padding: "12px 14px 0" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+            <button onClick={function() { setViewDate(new Date(year, month - 1, 1)); setSelectedISO(null); setSelectedWeek(null); }} style={{ background: "none", border: "1px solid " + tabColor + "44", borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontSize: 14, color: tabColor }}>{"<"}</button>
+            <span style={{ fontWeight: 600, fontSize: 14, color: tabColor }}>{viewDate.toLocaleDateString("en", { month: "long", year: "numeric" })}</span>
+            <button onClick={function() { setViewDate(new Date(year, month + 1, 1)); setSelectedISO(null); setSelectedWeek(null); }} style={{ background: "none", border: "1px solid " + tabColor + "44", borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontSize: 14, color: tabColor }}>{">"}</button>
+          </div>
+          <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+            {[["daily","Daily"],["weekly","Weekly"]].map(function(item) {
+              return <button key={item[0]} onClick={function() { setCalView(item[0]); setSelectedISO(null); setSelectedWeek(null); }} style={{ flex: 1, padding: "8px 0", borderRadius: 10, border: "1px solid #2a2a2a", cursor: "pointer", fontWeight: 600, fontSize: 13, background: calView === item[0] ? tabColor : "#1c1c1c", color: calView === item[0] ? "#111" : "#555" }}>{item[1]}</button>;
+            })}
+          </div>
+        </div>
       </div>
 
       {calView === "daily" && (
@@ -1114,25 +1131,29 @@ function getWeeksInMonth() {
               var hasSession  = allSessions.some(function(s) { return s.date === iso; });
               var hasActivity = activities.some(function(a) { return a.date === iso; });
               var summary = dailySummaryLogs[iso];
-              var bg = dayCellBg(iso, burnLogs, dailySummaryLogs, correction);
+              var cellState = dayCellBg(iso, burnLogs, dailySummaryLogs, correction);
+              var cellBg = cellState ? cellState.bg : "#1c1c1c";
+              var cellBorder = isSelected ? "2px solid #f0ede8" : isToday ? "2px solid #f0ede8" : cellState ? "1px solid " + cellState.border : "0.5px solid #2a2a2a";
+              var cellColor = cellState ? cellState.color : "#333";
+              var cellBold = cellState ? cellState.bold : false;
 
               // Dots
               var dots = [];
-              if (hasSession || hasActivity) dots.push({ color: "#2d7a4f", key: "g" });
+              if (hasSession || hasActivity) dots.push({ color: "#4caf7d", key: "g" });
               if (summary) {
-                if ((summary.protein || 0) < (config.nutrition.protein - 20))                    dots.push({ color: "#3b82f6", key: "b" });
-                if ((summary.fat    || 0) > (config.nutrition.fatTraining + 15))                  dots.push({ color: "#f97316", key: "f" });
+                if ((summary.protein || 0) < (config.nutrition.protein - 20))                    dots.push({ color: "#6699cc", key: "b" });
+                if ((summary.fat    || 0) > (config.nutrition.fatTraining + 15))                  dots.push({ color: "#e07060", key: "f" });
                 if ((summary.carbs  || 0) > ((hasSession ? config.nutrition.carbsTraining : config.nutrition.carbsRest) + 30)) dots.push({ color: "#a855f7", key: "p" });
               }
 
               return (
                 <div key={day} onClick={function() { setSelectedISO(isSelected ? null : iso); }}
-                  style={{ background: bg, borderRadius: 8, minHeight: 44, border: isSelected ? "2px solid #1a1a1a" : isToday ? "2px solid #555" : "0.5px solid #d0d0ce", cursor: "pointer", overflow: "hidden", display: "flex", flexDirection: "column" }}>
+                  style={{ background: cellBg, borderRadius: 8, minHeight: 44, border: cellBorder, cursor: "pointer", overflow: "hidden", display: "flex", flexDirection: "column" }}>
                   <div style={{ padding: "5px 3px 3px", flex: 1 }}>
-                    <div style={{ fontSize: 12, fontWeight: isToday ? 700 : 400, textAlign: "center", color: bg === "#166534" ? "#fff" : "#1a1a1a" }}>{day}</div>
+                    <div style={{ fontSize: 12, fontWeight: (isToday || cellBold) ? 700 : 400, textAlign: "center", color: cellColor }}>{day}</div>
                   </div>
                   {dots.length > 0 && (
-                    <div style={{ background: "#fff", padding: "2px 3px", display: "flex", justifyContent: "center", gap: 2, flexWrap: "wrap" }}>
+                    <div style={{ background: "#161616", padding: "2px 3px", display: "flex", justifyContent: "center", gap: 2, flexWrap: "wrap" }}>
                       {dots.map(function(dot) { return <div key={dot.key} style={{ width: 6, height: 6, borderRadius: "50%", background: dot.color }} />; })}
                     </div>
                   )}
@@ -1141,12 +1162,12 @@ function getWeeksInMonth() {
             })}
           </div>
 
-          {selectedISO && <DayDetail iso={selectedISO} burnLogs={burnLogs} onSaveBurn={onSaveBurn} weekSessions={allSessions} activities={activities} dailySummaryLogs={dailySummaryLogs} correction={correction} config={config} omronLogs={omronLogs} onSaveOmron={onSaveOmron} />}
+          {selectedISO && <DayDetail iso={selectedISO} burnLogs={burnLogs} onSaveBurn={onSaveBurn} weekSessions={allSessions} activities={activities} dailySummaryLogs={dailySummaryLogs} correction={correction} config={config} omronLogs={omronLogs} onSaveOmron={onSaveOmron} tabColor={tabColor} tabBg={tabBg} />}
 
           <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {[["#166534","Deficit 300+"],["#bbf7d0","Deficit/neutral"],["#fde68a","Surplus <300"],["#fca5a5","Surplus 300+"],["#e8e8e6","No data"]].map(function(item) {
-              return <div key={item[1]} style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 10, color: "#666" }}>
-                <div style={{ width: 10, height: 10, borderRadius: 2, background: item[0], border: "0.5px solid #ddd" }} />{item[1]}
+            {[["#0a2818","#4caf7d","Deficit 300+"],["#0a1c2a","#6699cc","Deficit/neutral"],["#2a1a00","#e8a040","Surplus <300"],["#2a0d0d","#e05050","Surplus 300+"],["#1c1c1c","#333","No data"]].map(function(item) {
+              return <div key={item[2]} style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 10, color: item[1] }}>
+                <div style={{ width: 10, height: 10, borderRadius: 2, background: item[0], border: "1px solid " + item[1] }} />{item[2]}
               </div>;
             })}
           </div>
@@ -1171,11 +1192,11 @@ function getWeeksInMonth() {
             return (
               <div key={w.key}>
                 <div onClick={function() { setSelectedWeek(selectedWeek === w.key ? null : w.key); }}
-                  style={{ background: "#fff", border: "0.5px solid #ddd", borderRadius: selectedWeek === w.key ? "10px 10px 0 0" : 10, padding: "12px 14px", marginBottom: selectedWeek === w.key ? 0 : 8, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ fontSize: 13, fontWeight: 500 }}>{w.label}</span>
+                  style={{ background: "#1c1c1c", border: "1px solid #2a2a2a", borderRadius: selectedWeek === w.key ? "10px 10px 0 0" : 10, padding: "12px 14px", marginBottom: selectedWeek === w.key ? 0 : 8, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: "#f0ede8" }}>{w.label}</span>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    {avgW != null && <span style={{ fontSize: 11, color: "#2d7a4f", fontWeight: 500 }}>{avgW} kg{avgBf != null ? " · " + avgBf + "% BF" : ""}</span>}
-                    <span style={{ fontSize: 14, color: "#aaa" }}>{selectedWeek === w.key ? "^" : "v"}</span>
+                    {avgW != null && <span style={{ fontSize: 11, color: "#6699cc", fontWeight: 500 }}>{avgW} kg{avgBf != null ? " · " + avgBf + "% BF" : ""}</span>}
+                    <span style={{ fontSize: 14, color: "#444" }}>{selectedWeek === w.key ? "^" : "v"}</span>
                   </div>
                 </div>
                 {selectedWeek === w.key && <WeekDetail weekKey={w.key} weeklyRow={weeklyRow} prevWeeklyRow={prevWeeklyRow} />}
@@ -1195,10 +1216,10 @@ function SettingsPanel({ config, onSave, onClose, onPatch }) {
   var [configSaved, setConfigSaved] = useState(false); var [patchSaved, setPatchSaved] = useState(false);
   return (
     <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.5)", zIndex: 100, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
-      <div style={{ background: "#f5f5f3", borderRadius: "16px 16px 0 0", padding: 16, width: "100%", maxWidth: 480, maxHeight: "85vh", overflowY: "auto" }}>
+      <div style={{ background: "#111", borderRadius: "16px 16px 0 0", padding: 16, width: "100%", maxWidth: 480, maxHeight: "85vh", overflowY: "auto", borderTop: "1px solid #2a2a2a" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}><span style={{ fontWeight: 500, fontSize: 16 }}>Settings</span><button onClick={onClose} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "#888" }}>×</button></div>
-        <Card><CardHdr left="App config (CONFIG)" /><div style={{ padding: 14 }}><div style={{ fontSize: 12, color: "#888", marginBottom: 8 }}>Paste CONFIG JSON to update athlete stats and nutrition targets.</div><textarea style={{ width: "100%", height: 80, padding: 10, border: "0.5px solid #ccc", borderRadius: 8, fontSize: 12, fontFamily: "monospace", resize: "vertical", marginBottom: 8 }} value={configInput} onChange={function(e) { setConfigInput(e.target.value); }} placeholder='{"athlete":{"weight":83.5,...}}' /><ActionBtn onClick={function() { setConfigErr(""); try { onSave(JSON.parse(configInput)); setConfigSaved(true); setTimeout(function() { setConfigSaved(false); }, 2000); } catch(e) { setConfigErr("Invalid JSON."); } }}>{configSaved ? "Saved" : "Save config"}</ActionBtn>{configErr && <div style={{ fontSize: 12, color: "#dc2626", marginTop: 6 }}>{configErr}</div>}</div></Card>
-        <Card><CardHdr left="Data patch" /><div style={{ padding: 14 }}><div style={{ fontSize: 12, color: "#888", marginBottom: 8 }}>Backfill meals or log calorie overrides.</div><textarea style={{ width: "100%", height: 80, padding: 10, border: "0.5px solid #ccc", borderRadius: 8, fontSize: 12, fontFamily: "monospace", resize: "vertical", marginBottom: 8 }} value={patchInput} onChange={function(e) { setPatchInput(e.target.value); }} placeholder='{"type":"nutrition_entry",...} or {"type":"activity","date":"2026-04-06","activity_type":"Hike","duration":185,"calories_burned":1240,"avg_hr":118,"peak_hr":148,"zone_minutes":{"z1":20,"z2":95},"elevation_gain":820,"notes":"..."}' /><ActionBtn onClick={function() { setPatchErr(""); try { onPatch(JSON.parse(patchInput)); setPatchSaved(true); setTimeout(function() { setPatchSaved(false); setPatchInput(""); }, 2000); } catch(e) { setPatchErr("Invalid JSON."); } }}>{patchSaved ? "Patched" : "Apply patch"}</ActionBtn>{patchErr && <div style={{ fontSize: 12, color: "#dc2626", marginTop: 6 }}>{patchErr}</div>}</div></Card>
+        <Card><CardHdr left="App config (CONFIG)" /><div style={{ padding: 14 }}><div style={{ fontSize: 12, color: "#888", marginBottom: 8 }}>Paste CONFIG JSON to update athlete stats and nutrition targets.</div><textarea style={{ width: "100%", height: 80, padding: 10, border: "1px solid #2a2a2a", borderRadius: 8, fontSize: 12, fontFamily: "monospace", resize: "vertical", marginBottom: 8, background: "#1c1c1c", color: "#f0ede8" }} value={configInput} onChange={function(e) { setConfigInput(e.target.value); }} placeholder='{"athlete":{"weight":83.5,...}}' /><ActionBtn onClick={function() { setConfigErr(""); try { onSave(JSON.parse(configInput)); setConfigSaved(true); setTimeout(function() { setConfigSaved(false); }, 2000); } catch(e) { setConfigErr("Invalid JSON."); } }}>{configSaved ? "Saved" : "Save config"}</ActionBtn>{configErr && <div style={{ fontSize: 12, color: "#dc2626", marginTop: 6 }}>{configErr}</div>}</div></Card>
+        <Card><CardHdr left="Data patch" /><div style={{ padding: 14 }}><div style={{ fontSize: 12, color: "#888", marginBottom: 8 }}>Backfill meals or log calorie overrides.</div><textarea style={{ width: "100%", height: 80, padding: 10, border: "1px solid #2a2a2a", borderRadius: 8, fontSize: 12, fontFamily: "monospace", resize: "vertical", marginBottom: 8, background: "#1c1c1c", color: "#f0ede8" }} value={patchInput} onChange={function(e) { setPatchInput(e.target.value); }} placeholder='{"type":"nutrition_entry",...} or {"type":"activity","date":"2026-04-06","activity_type":"Hike","duration":185,"calories_burned":1240,"avg_hr":118,"peak_hr":148,"zone_minutes":{"z1":20,"z2":95},"elevation_gain":820,"notes":"..."}' /><ActionBtn onClick={function() { setPatchErr(""); try { onPatch(JSON.parse(patchInput)); setPatchSaved(true); setTimeout(function() { setPatchSaved(false); setPatchInput(""); }, 2000); } catch(e) { setPatchErr("Invalid JSON."); } }}>{patchSaved ? "Patched" : "Apply patch"}</ActionBtn>{patchErr && <div style={{ fontSize: 12, color: "#dc2626", marginTop: 6 }}>{patchErr}</div>}</div></Card>
         <Card><CardHdr left="Sheet sync" /><div style={{ padding: 14 }}><div style={{ fontSize: 12, color: "#888", marginBottom: 8 }}>Rebuild the entire Google Sheet from Supabase. Use after bulk data imports or if the sheet looks out of sync.</div><ActionBtn onClick={function() { syncSheet(); onClose(); }}>Rebuild Google Sheet</ActionBtn></div></Card>
         <Card><CardHdr left="Current config" /><div style={{ padding: 14 }}>{[["Weight", config.athlete.weight + " kg"],["SMM", config.athlete.smm + " kg"],["BF%", config.athlete.bf + "%"],["Scan date", config.athlete.scanDate],["Cal training", config.nutrition.caloriesTraining + " kcal"],["Cal rest", config.nutrition.caloriesRest + " kcal"],["Protein", config.nutrition.protein + "g"],["HRmax", config.training.hmaxBpm + " bpm"],["PW correction", (config.training.pixelWatchCorrection * 100) + "%"]].map(function(item) { return <div key={item[0]} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "4px 0", borderBottom: "0.5px solid #f0f0f0" }}><span style={{ color: "#888" }}>{item[0]}</span><span style={{ fontWeight: 500 }}>{item[1]}</span></div>; })}</div></Card>
       </div>
@@ -1496,28 +1517,50 @@ async function upsertDailySummaryForDate(date) {
   var fatGoal = isTrainingDay ? config.nutrition.fatTraining : config.nutrition.fatRest;
 
   if (loading) return (
-    <div style={{ fontFamily: "system-ui,sans-serif", background: "#f5f5f3", minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+    <div style={{ fontFamily: "system-ui,sans-serif", background: "#111", minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
       <div style={{ fontSize: 20, fontWeight: 500, marginBottom: 24 }}>Gym Fra</div>
       <Loader />
     </div>
   );
 
+  var NAV_TABS = [
+    { id: "dashboard", label: "Dashboard", color: "#5bb8d4" },
+    { id: "nutrition",  label: "Nutrition",  color: "#7ab58a" },
+    { id: "training",   label: "Training",   color: "#e8a040" },
+    { id: "calendar",   label: "Calendar",   color: "#8b7bb5" }
+  ];
+  var TAB_COLORS = { dashboard: "#5bb8d4", nutrition: "#7ab58a", training: "#e8a040", calendar: "#8b7bb5" };
+  var TAB_BG = { dashboard: "#071820", nutrition: "#0a1a10", training: "#1e1200", calendar: "#120f1e" };
+  var tabColor = TAB_COLORS[tab] || "#5bb8d4";
+  var tabBg = TAB_BG[tab] || "#071820";
   return (
-    <div style={{ fontFamily: "system-ui,sans-serif", background: "#f5f5f3", color: "#1a1a1a", minHeight: "100vh", maxWidth: 480, margin: "0 auto", padding: 12 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-        <div style={{ fontSize: 20, fontWeight: 500 }}>Gym Fra</div>
+    <div style={{ fontFamily: "system-ui,sans-serif", background: "#111", color: "#f0ede8", minHeight: "100vh", maxWidth: 480, margin: "0 auto", paddingBottom: 70 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 14px 8px", background: "#111", borderBottom: "1px solid #1a1a1a" }}>
+        <div style={{ fontSize: 20, fontWeight: 700, color: "#f0ede8", letterSpacing: "-.01em" }}>Gym Fra</div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontSize: 11, color: "#aaa" }}>{config.athlete.weight} kg · {config.athlete.bf}% BF</span>
-          <button style={{ background: "none", border: "0.5px solid #ddd", borderRadius: 8, padding: "6px 10px", cursor: "pointer", fontSize: 14, color: "#888" }} onClick={function() { setShowSettings(true); }}>settings</button>
+          <span style={{ fontSize: 11, color: "#444" }}>{config.athlete.weight} kg · {config.athlete.bf}% BF</span>
+          <button style={{ background: "none", border: "1px solid #2a2a2a", borderRadius: 8, padding: "5px 10px", cursor: "pointer", fontSize: 13, color: "#555" }} onClick={function() { setShowSettings(true); }}>settings</button>
         </div>
       </div>
-      <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
-        {[["dashboard","Dashboard"],["nutrition","Nutrition"],["training","Training"],["calendar","Calendar"]].map(function(item) { return <button key={item[0]} onClick={function() { setTab(item[0]); }} style={{ flex: 1, padding: "9px 0", borderRadius: 20, border: "0.5px solid " + (tab === item[0] ? "#1a1a1a" : "#ddd"), cursor: "pointer", fontWeight: 500, fontSize: 13, background: tab === item[0] ? "#1a1a1a" : "#fff", color: tab === item[0] ? "#fff" : "#888" }}>{item[1]}</button>; })}
-      </div>
-      {tab === "dashboard" && <Dashboard config={config} todayLogs={todayLogs} calGoal={calGoal} carbGoal={carbGoal} fatGoal={fatGoal} isTrainingDay={isTrainingDay} weekSessions={weekSessions} weeklyRow={weeklyRow} onTabChange={setTab} weeklySummaryLogs={weeklySummaryLogs} activities={activities} />}      {tab === "nutrition" && <NutritionTab config={config} todayLogs={todayLogs} onAddMeal={handleAddMeal} onDeleteMeal={handleDeleteMeal} isTrainingDay={isTrainingDay} calOverride={calOverrideToday} />}
-      {tab === "training" && <TrainingTab config={config} onSessionSaved={handleSessionSaved} lastSessionSets={lastSessionSets} />}
-      {tab === "calendar" && <CalendarTab config={config} burnLogs={burnLogs} onSaveBurn={handleSaveBurn} weekSessions={weekSessions} allSessions={allSessions} activities={activities} omronLogs={omronLogs} onSaveOmron={handleSaveOmron} dailySummaryLogs={dailySummaryLogs} weeklySummaryLogs={weeklySummaryLogs} />}
+      <div style={{ padding: "0 12px 12px" }}>
+      {tab === "dashboard" && <Dashboard config={config} todayLogs={todayLogs} calGoal={calGoal} carbGoal={carbGoal} fatGoal={fatGoal} isTrainingDay={isTrainingDay} weekSessions={weekSessions} weeklyRow={weeklyRow} onTabChange={setTab} weeklySummaryLogs={weeklySummaryLogs} activities={activities} tabColor={tabColor} tabBg={tabBg} />}      {tab === "nutrition" && <NutritionTab config={config} todayLogs={todayLogs} onAddMeal={handleAddMeal} onDeleteMeal={handleDeleteMeal} isTrainingDay={isTrainingDay} calOverride={calOverrideToday}  tabColor={tabColor} tabBg={tabBg} />}
+      {tab === "training" && <TrainingTab config={config} onSessionSaved={handleSessionSaved} lastSessionSets={lastSessionSets}  tabColor={tabColor} tabBg={tabBg} />}
+      {tab === "calendar" && <CalendarTab config={config} burnLogs={burnLogs} onSaveBurn={handleSaveBurn} weekSessions={weekSessions} allSessions={allSessions} activities={activities} omronLogs={omronLogs} onSaveOmron={handleSaveOmron} dailySummaryLogs={dailySummaryLogs} weeklySummaryLogs={weeklySummaryLogs}  tabColor={tabColor} tabBg={tabBg} />}
       {showSettings && <SettingsPanel config={config} onSave={handleConfigSave} onClose={function() { setShowSettings(false); }} onPatch={handlePatch} />}
+      </div>
+      <div style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 480, background: "#161616", borderTop: "1px solid #222", display: "flex", zIndex: 50 }}>
+        {NAV_TABS.map(function(t) {
+    var active = tab === t.id;
+    var c = active ? t.color : "#444";
+    var icons = {
+      dashboard: <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M5 12l-2 0l9 -9l9 9l-2 0" /><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7" /><path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6" /></svg>,
+      nutrition: <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 11l19 0" /><path d="M5 11v-5a1 1 0 0 1 1 -1h3a1 1 0 0 1 1 1v5" /><path d="M9 5v-2" /><path d="M14 11v-7" /><path d="M17 7.5a2.5 2.5 0 0 0 -2.5 -2.5" /><path d="M3 11a9 9 0 0 0 18 0" /></svg>,
+      training: <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M2 12h1" /><path d="M6 8h-2a1 1 0 0 0 -1 1v6a1 1 0 0 0 1 1h2" /><path d="M6 7v10a1 1 0 0 0 1 1h1a1 1 0 0 0 1 -1v-10a1 1 0 0 0 -1 -1h-1a1 1 0 0 0 -1 1z" /><path d="M9 12h6" /><path d="M15 7v10a1 1 0 0 0 1 1h1a1 1 0 0 0 1 -1v-10a1 1 0 0 0 -1 -1h-1a1 1 0 0 0 -1 1z" /><path d="M18 8h2a1 1 0 0 1 1 1v6a1 1 0 0 1 -1 1h-2" /><path d="M22 12h-1" /></svg>,
+      calendar: <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 7a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12z" /><path d="M16 3v4" /><path d="M8 3v4" /><path d="M4 11h16" /><path d="M7 14h.013" /><path d="M10.01 14h.005" /><path d="M13.01 14h.005" /><path d="M16.015 14h.005" /><path d="M13.015 17h.005" /><path d="M7.01 17h.005" /><path d="M10.01 17h.005" /></svg>
+    };
+    return <button key={t.id} onClick={function() { setTab(t.id); }} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3, padding: "14px 0", border: "none", background: "transparent", cursor: "pointer" }}>{icons[t.id]}</button>;
+  })}
+      </div>
     </div>
   );
 }
