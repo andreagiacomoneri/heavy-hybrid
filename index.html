@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<title>GymFra V2.1.1</title>
+<title>GymFra V2</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
@@ -227,32 +227,162 @@ function calcWeeklySummary(weekSessions, weeklyRow) {
 }
 
 // ── DASHBOARD ─────────────────────────────────────────────────
-function Dashboard({ config, todayLogs, calGoal, carbGoal, fatGoal, isTrainingDay, weekSessions, weeklyRow, onTabChange, weeklySummaryLogs, activities, allSessions, dailySummaryLogs, omronLogs, tabColor, tabBg })  {
+// ── ENERGY BALANCE CHART ─────────────────────────────────────────
+function EbChart({ days7, dailySummaryLogs }) {
+  var canvasRef = useRef(null);
+  var labels = days7.map(function(iso) {
+    return ["Su","Mo","Tu","We","Th","Fr","Sa"][new Date(iso+"T12:00:00").getDay()];
+  });
+  var vals = days7.map(function(iso) {
+    var row = dailySummaryLogs[iso];
+    return (row && row.energy_balance != null) ? row.energy_balance : null;
+  });
   useEffect(function() {
-    var days7 = Array.from({ length: 7 }, function(_, i) {
-      var d = new Date(); d.setDate(d.getDate() - 6 + i);
-      return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
-    });
-    var lbls = days7.map(function(iso) {
-      return ["Su","Mo","Tu","We","Th","Fr","Sa"][new Date(iso+"T12:00:00").getDay()];
-    });
-    var ebVals = days7.map(function(iso) {
-      var row = dailySummaryLogs[iso];
-      return (row && row.energy_balance != null) ? row.energy_balance : null;
-    });
-    var omron = omronLogs;
-    function tryInit(attempts) {
-      var eb = document.getElementById("eb-chart-7d");
-      var wt = document.getElementById("wt-chart-6w");
-      if (eb && wt && window.__initEbChart && window.__initWtChart) {
-        window.__initEbChart(lbls, ebVals);
-        window.__initWtChart(omron);
-      } else if (attempts > 0) {
-        setTimeout(function() { tryInit(attempts - 1); }, 100);
+    var canvas = canvasRef.current;
+    if (!canvas || !window.Chart) return;
+    if (canvas._chartInst) { canvas._chartInst.destroy(); canvas._chartInst = null; }
+    canvas._chartInst = new window.Chart(canvas, {
+      type: "bar",
+      data: { labels: labels, datasets: [{ data: vals,
+        backgroundColor: vals.map(function(v){return v===null?"transparent":v<0?"#4caf7d33":"#e0505033";}),
+        borderColor: vals.map(function(v){return v===null?"transparent":v<0?"#4caf7d":"#e05050";}),
+        borderWidth:{top:2,bottom:0,left:0,right:0},
+        borderRadius:{topLeft:2,topRight:2,bottomLeft:0,bottomRight:0},
+        borderSkipped:false, barPercentage:1.0, categoryPercentage:1.0
+      }]},
+      options: { responsive:true, maintainAspectRatio:false, animation:false,
+        plugins:{ legend:{display:false}, tooltip:{ backgroundColor:"#161616", borderColor:"#2a2a2a", borderWidth:1, titleColor:"#f0ede8", bodyColor:"#888", padding:8,
+          callbacks:{label:function(ctx){return ctx.raw===null?"No data":(ctx.raw>=0?"+":"")+ctx.raw+" kcal";}} } },
+        scales:{
+          x:{grid:{display:false},border:{display:false},ticks:{color:"#555",font:{size:11},padding:4}},
+          y:{position:"right",
+            grid:{color:function(c){return c.tick.value===0?"#444":"#222";},lineWidth:function(c){return c.tick.value===0?1.5:0.5;}},
+            border:{display:false},
+            ticks:{color:"#444",font:{size:10},padding:6,maxTicksLimit:5,callback:function(v){return (v>0?"+":"")+v;}}
+          }
+        }, layout:{padding:{top:6}}
       }
-    }
-    tryInit(20);
-  }, [dailySummaryLogs, omronLogs]);
+    });
+  }, [dailySummaryLogs]);
+  return <div style={{ position:"relative", width:"100%", height:110 }}>
+    <canvas ref={canvasRef} role="img" aria-label="Energy balance chart" />
+  </div>;
+}
+
+// ── WEIGHT TRENDS CARD ───────────────────────────────────────────
+function WeightTrendsCard({ omronLogs, tabColor, tabBg }) {
+  var [wtState, setWtState] = useState({ w: true, f: true, l: true });
+  var C = { w: "#5bb8d4", f: "#e07060", l: "#7ab58a" };
+  var BG = { w: "#071820", f: "#1e0e0a", l: "#0a1a10" };
+
+  var today = new Date();
+  var weeks = Array.from({ length: 6 }, function(_, i) {
+    var d = new Date(today); d.setDate(d.getDate() - (5 - i) * 7);
+    return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+  });
+
+  function nearest(iso) {
+    var row = omronLogs[iso]; if (row) return row;
+    var best = null, bestD = 999;
+    Object.keys(omronLogs).forEach(function(k) {
+      var diff = Math.abs(new Date(iso) - new Date(k)) / 86400000;
+      if (diff < bestD && diff < 5) { bestD = diff; best = omronLogs[k]; }
+    });
+    return best;
+  }
+
+  var wt = weeks.map(function(iso) { var r = nearest(iso); return r ? Math.round(r.bodyweight * 10)/10 : null; });
+  var bf = weeks.map(function(iso) { var r = nearest(iso); return r ? Math.round(r.body_fat * 10)/10 : null; });
+  var lm = wt.map(function(w, i) { return w !== null && bf[i] !== null ? Math.round(w*(1-bf[i]/100)*10)/10 : null; });
+  var fm = wt.map(function(w, i) { return w !== null && bf[i] !== null ? Math.round(w*(bf[i]/100)*10)/10 : null; });
+
+  function toDeltas(arr) {
+    var base = arr.find(function(v) { return v !== null; });
+    if (base == null) return arr;
+    return arr.map(function(v) { return v !== null ? Math.round((v-base)*100)/100 : null; });
+  }
+  var DATA = { w: toDeltas(wt), f: toDeltas(fm), l: toDeltas(lm) };
+  var wkLabels = weeks.map(function(_, i) { return "W"+(i+1); });
+
+  useEffect(function() {
+    var canvas = document.getElementById("wt-chart-6w");
+    if (!canvas || !window.Chart) return;
+    if (canvas._chartInst) { canvas._chartInst.destroy(); canvas._chartInst = null; }
+    var active = ["w","f","l"].filter(function(k) { return wtState[k]; });
+    var datasets = active.map(function(k) {
+      var LABEL = { w:"Weight", f:"Fat mass", l:"Lean mass" };
+      return { label: LABEL[k], data: DATA[k], yAxisID:"y", borderColor: C[k], borderWidth: 2.5,
+        pointBackgroundColor: C[k], pointBorderColor: "#1c1c1c", pointBorderWidth: 2,
+        pointRadius: 4, pointHoverRadius: 6, tension: 0.3, fill: false, spanGaps: true };
+    });
+    var all = [0]; active.forEach(function(k) { DATA[k].forEach(function(v) { if (v!==null) all.push(v); }); });
+    var mn = Math.min.apply(null,all), mx = Math.max.apply(null,all);
+    var pad = Math.max((mx-mn)*0.2, 0.3);
+    canvas._chartInst = new window.Chart(canvas, {
+      type: "line",
+      data: { labels: wkLabels, datasets: datasets },
+      options: { responsive: true, maintainAspectRatio: false, animation: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: { legend: { display: false }, tooltip: { backgroundColor: "#161616", borderColor: "#2a2a2a", borderWidth: 1, titleColor: "#f0ede8", bodyColor: "#888", padding: 8,
+          callbacks: { label: function(ctx) { var v=ctx.raw; return v===null?"No data":ctx.dataset.label+": "+(v>=0?"+":"")+v.toFixed(2)+" kg"; } } } },
+        scales: {
+          x: { grid:{display:false}, border:{display:false}, ticks:{color:"#555",font:{size:11},padding:4} },
+          y: { position:"left", min:Math.floor((mn-pad)*10)/10, max:Math.ceil((mx+pad)*10)/10,
+            grid:{color:function(c){return c.tick.value===0?"#444":"#1e1e1e";},lineWidth:function(c){return c.tick.value===0?1.5:0.5;}},
+            border:{display:false},
+            ticks:{color:"#555",font:{size:10},padding:4,maxTicksLimit:6,callback:function(v){return (v>=0?"+":"")+v.toFixed(1)+" kg";}}
+          }
+        }, layout:{padding:{top:8}}
+      }
+    });
+  }, [wtState, omronLogs]);
+
+  var wtArr = wt.filter(function(v){return v!==null;}),
+      fmArr = fm.filter(function(v){return v!==null;}),
+      lmArr = lm.filter(function(v){return v!==null;});
+  var hasData = wtArr.length > 1;
+  var n = Math.max(wtArr.length-1, 1);
+  var fatPerWk = hasData ? (fmArr[0]-fmArr[fmArr.length-1])/n : null;
+  var leanPerWk = hasData ? (lmArr[lmArr.length-1]-lmArr[0])/n : null;
+  var totalFatLost = hasData ? fmArr[0]-fmArr[fmArr.length-1] : null;
+  var totalWtLost = hasData ? wtArr[0]-wtArr[wtArr.length-1] : null;
+  var leanRet = (hasData && totalWtLost > 0) ? Math.round(totalFatLost/totalWtLost*100) : null;
+
+  function Chip({ val, lbl, color }) {
+    return <div style={{ background: "#161616", border: "1px solid #222", borderRadius: 8, padding: "8px 10px", textAlign: "center" }}>
+      <div style={{ fontSize: 15, fontWeight: 700, color: color, lineHeight: 1.1 }}>{val}</div>
+      <div style={{ fontSize: 9, color: "#444", marginTop: 3, textTransform: "uppercase", letterSpacing: ".04em" }}>{lbl}</div>
+    </div>;
+  }
+
+  return <Card>
+    <CardHdr color={tabColor} left="Weight Trends" right={<span style={{ fontSize: 11, color: "#555" }}>6 weeks</span>} />
+    <div style={{ padding: 14 }}>
+      <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+        {["w","f","l"].map(function(k) {
+          var on = wtState[k];
+          var LBL = { w:"Weight", f:"Fat", l:"Lean" };
+          var style = on
+            ? { padding:"6px 13px", borderRadius:20, border:"1px solid "+C[k], background:BG[k], color:C[k], fontSize:11, fontWeight:600, cursor:"pointer" }
+            : { padding:"6px 13px", borderRadius:20, border:"1px solid #2a2a2a", background:"#161616", color:"#555", fontSize:11, fontWeight:600, cursor:"pointer" };
+          return <button key={k} style={style} onClick={function(){setWtState(function(prev){var n=Object.assign({},prev);n[k]=!n[k];return n;})}}>{LBL[k]}</button>;
+        })}
+      </div>
+      <div style={{ position: "relative", width: "100%", height: 150 }}>
+        <canvas id="wt-chart-6w" />
+      </div>
+      {hasData && <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 14 }}>
+        <Chip val={fatPerWk !== null ? fatPerWk.toFixed(2)+" kg" : "—"} lbl="fat / week" color={fatPerWk > 0 ? "#4caf7d" : "#e05050"} />
+        <Chip val={leanPerWk !== null ? (leanPerWk>=0?"+":"")+leanPerWk.toFixed(2)+" kg" : "—"} lbl="lean / week" color={leanPerWk >= -0.05 ? "#4caf7d" : "#e07060"} />
+        <Chip val={totalFatLost !== null ? totalFatLost.toFixed(1)+" kg" : "—"} lbl="total fat lost" color="#e07060" />
+        <Chip val={leanRet !== null ? leanRet+"%" : "—"} lbl="lean retained" color={leanRet >= 80 ? "#4caf7d" : leanRet >= 60 ? "#e8a040" : "#e05050"} />
+      </div>}
+    </div>
+  </Card>;
+}
+
+function Dashboard({ config, todayLogs, calGoal, carbGoal, fatGoal, isTrainingDay, weekSessions, weeklyRow, onTabChange, weeklySummaryLogs, activities, allSessions, dailySummaryLogs, omronLogs, tabColor, tabBg })  {
+
   var totals = todayLogs.reduce(function(a, e) { return { cal: a.cal + (e.calories||e.cal||0), protein: a.protein + (e.protein||0), carbs: a.carbs + (e.carbs||0), fat: a.fat + (e.fat||0) }; }, { cal: 0, protein: 0, carbs: 0, fat: 0 });
   var remaining = calGoal - totals.cal;
   var last = weekSessions.length > 0 ? weekSessions[weekSessions.length - 1] : null;
@@ -306,24 +436,13 @@ function Dashboard({ config, todayLogs, calGoal, carbGoal, fatGoal, isTrainingDa
                   </div>
                 </div>
                 <div style={{ fontSize: 10, color: "#444", fontWeight: 600, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 8 }}>Energy balance</div>
-                <div style={{ position: "relative", width: "100%", height: 110 }}>
-                  <canvas id="eb-chart-7d" />
-                </div>
+                <EbChart days7={days7} dailySummaryLogs={dailySummaryLogs} />
               </div>
             );
           })()}
         </div>
       </Card>
-      <Card>
-        <CardHdr color={tabColor} left="Weight Trends" right={<span style={{ fontSize: 11, color: "#555" }}>6 weeks</span>} />
-        <div style={{ padding: 14 }}>
-          <div id="wt-selector" style={{ display: "flex", gap: 6, marginBottom: 12 }}></div>
-          <div style={{ position: "relative", width: "100%", height: 150 }}>
-            <canvas id="wt-chart-6w" />
-          </div>
-          <div id="wt-stats" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 14 }}></div>
-        </div>
-      </Card>
+      <WeightTrendsCard omronLogs={omronLogs} tabColor={tabColor} tabBg={tabBg} />
     </div>
   );
 }
@@ -1594,7 +1713,7 @@ async function upsertDailySummaryForDate(date) {
 ReactDOM.render(<App />, document.getElementById("root"));
 </script>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+
 <script>
 window.__ebChartInst = null;
 window.__initEbChart = function(labels, vals) {
