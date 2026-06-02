@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<title>GymFra V2.1</title>
+<title>GymFra V2.1.1</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
@@ -240,10 +240,18 @@ function Dashboard({ config, todayLogs, calGoal, carbGoal, fatGoal, isTrainingDa
       var row = dailySummaryLogs[iso];
       return (row && row.energy_balance != null) ? row.energy_balance : null;
     });
-    setTimeout(function() {
-      if (window.__initEbChart) window.__initEbChart(lbls, ebVals);
-      if (window.__initWtChart) window.__initWtChart(omronLogs);
-    }, 80);
+    var omron = omronLogs;
+    function tryInit(attempts) {
+      var eb = document.getElementById("eb-chart-7d");
+      var wt = document.getElementById("wt-chart-6w");
+      if (eb && wt && window.__initEbChart && window.__initWtChart) {
+        window.__initEbChart(lbls, ebVals);
+        window.__initWtChart(omron);
+      } else if (attempts > 0) {
+        setTimeout(function() { tryInit(attempts - 1); }, 100);
+      }
+    }
+    tryInit(20);
   }, [dailySummaryLogs, omronLogs]);
   var totals = todayLogs.reduce(function(a, e) { return { cal: a.cal + (e.calories||e.cal||0), protein: a.protein + (e.protein||0), carbs: a.carbs + (e.carbs||0), fat: a.fat + (e.fat||0) }; }, { cal: 0, protein: 0, carbs: 0, fat: 0 });
   var remaining = calGoal - totals.cal;
