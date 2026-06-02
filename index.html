@@ -3,10 +3,11 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<title>GymFra V2</title>
+<title>GymFra V2.1</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -226,7 +227,24 @@ function calcWeeklySummary(weekSessions, weeklyRow) {
 }
 
 // ── DASHBOARD ─────────────────────────────────────────────────
-function Dashboard({ config, todayLogs, calGoal, carbGoal, fatGoal, isTrainingDay, weekSessions, weeklyRow, onTabChange, weeklySummaryLogs, activities, allSessions, dailySummaryLogs, tabColor, tabBg }) {
+function Dashboard({ config, todayLogs, calGoal, carbGoal, fatGoal, isTrainingDay, weekSessions, weeklyRow, onTabChange, weeklySummaryLogs, activities, allSessions, dailySummaryLogs, omronLogs, tabColor, tabBg })  {
+  useEffect(function() {
+    var days7 = Array.from({ length: 7 }, function(_, i) {
+      var d = new Date(); d.setDate(d.getDate() - 6 + i);
+      return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+    });
+    var lbls = days7.map(function(iso) {
+      return ["Su","Mo","Tu","We","Th","Fr","Sa"][new Date(iso+"T12:00:00").getDay()];
+    });
+    var ebVals = days7.map(function(iso) {
+      var row = dailySummaryLogs[iso];
+      return (row && row.energy_balance != null) ? row.energy_balance : null;
+    });
+    setTimeout(function() {
+      if (window.__initEbChart) window.__initEbChart(lbls, ebVals);
+      if (window.__initWtChart) window.__initWtChart(omronLogs);
+    }, 80);
+  }, [dailySummaryLogs, omronLogs]);
   var totals = todayLogs.reduce(function(a, e) { return { cal: a.cal + (e.calories||e.cal||0), protein: a.protein + (e.protein||0), carbs: a.carbs + (e.carbs||0), fat: a.fat + (e.fat||0) }; }, { cal: 0, protein: 0, carbs: 0, fat: 0 });
   var remaining = calGoal - totals.cal;
   var last = weekSessions.length > 0 ? weekSessions[weekSessions.length - 1] : null;
@@ -236,127 +254,66 @@ function Dashboard({ config, todayLogs, calGoal, carbGoal, fatGoal, isTrainingDa
   return (
     <div>
       <Card>
-        <CardHdr color={tabColor} left="Dashboard" right={<span style={{ fontSize: 11, color: "#aaa" }}>{fmtDate(todayISO())}</span>} />
-        <div style={{ padding: 14 }}>
-          <MacroBar label="Calories" value={totals.cal} goal={calGoal} color="#a5f3fc" />
-          <MacroBar label="Protein" value={totals.protein} goal={config.nutrition.protein} color="#86efac" />
-          <MacroBar label="Carbs" value={totals.carbs} goal={carbGoal} color="#fde68a" />
-          <MacroBar label="Fat" value={totals.fat} goal={fatGoal} color="#fca5a5" />
-          <div style={{ marginTop: 10, fontSize: 13, fontWeight: 500, color: remaining >= 0 ? tabColor : "#e05050" }}>{remaining >= 0 ? remaining + " kcal remaining" : Math.abs(remaining) + " kcal over goal"}</div>
-          <div style={{ fontSize: 11, color: "#444", marginTop: 4 }} style={{ color: "#444" }}>{isTrainingDay ? "Training day targets" : "Rest day targets"}</div>
-        </div>
-      </Card>
-      <Card>
-        <CardHdr color={tabColor} left="Dashboard" right={<span style={{ fontSize: 11, color: "#444" }}>Last 7 days</span>} />
+        <CardHdr color={tabColor} left="Last Week Overview" right={<span style={{ fontSize: 11, color: "#555" }}>7 days</span>} />
         <div style={{ padding: 14 }}>
           {(function() {
-            // Build last 7 days array
             var days7 = Array.from({ length: 7 }, function(_, i) {
               var d = new Date(); d.setDate(d.getDate() - 6 + i);
               return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
             });
             var data7 = days7.map(function(iso) { return dailySummaryLogs[iso] || null; });
             var hasSess = function(iso) { return allSessions.some(function(s) { return s.date === iso; }) || activities.some(function(a) { return a.date === iso; }); };
-
-            // Stat computations
             var balVals = data7.map(function(d) { return d && d.energy_balance != null ? d.energy_balance : null; }).filter(function(v) { return v !== null; });
             var protVals = data7.map(function(d) { return d && d.protein ? d.protein : null; }).filter(function(v) { return v !== null; });
-            var weightVals = data7.map(function(d) { return d && d.bodyweight ? d.bodyweight : null; }).filter(function(v) { return v !== null; });
-            var bfVals = data7.map(function(d) { return d && d.body_fat ? d.body_fat : null; }).filter(function(v) { return v !== null; });
             var sessCount = days7.filter(hasSess).length;
             var avgBal = balVals.length ? Math.round(balVals.reduce(function(a,b){return a+b;},0)/balVals.length) : null;
             var avgProt = protVals.length ? Math.round(protVals.reduce(function(a,b){return a+b;},0)/protVals.length) : null;
-            var latestWeight = weightVals.length ? weightVals[weightVals.length-1] : null;
-            var latestBf = bfVals.length ? bfVals[bfVals.length-1] : null;
-
-            // Chart: energy balance line over 7 days
-            var chartW = 280; var chartH = 72; var midY = chartH / 2;
-            var maxAbs = balVals.length ? Math.max.apply(null, [600].concat(balVals.map(Math.abs))) : 600;
-            var pts = days7.map(function(iso, i) {
-              var d = dailySummaryLogs[iso];
-              var v = d && d.energy_balance != null ? d.energy_balance : 0;
-              var x = (i / 6) * chartW;
-              var y = midY - (v / maxAbs) * (midY - 6);
-              return { x: x, y: y, v: v, iso: iso, hasData: !!(d && d.energy_balance != null) };
-            });
-            var polyline = pts.filter(function(p){return p.hasData;}).map(function(p){return p.x+","+p.y;}).join(" ");
-            var labels = days7.map(function(iso) {
-              var d = new Date(iso+"T12:00:00"); var day = d.getDay();
-              return ["Su","Mo","Tu","We","Th","Fr","Sa"][day];
-            });
-
+            var latestOmron = (function() {
+              for (var i = days7.length - 1; i >= 0; i--) {
+                var row = omronLogs[days7[i]];
+                if (row) return row;
+              }
+              return null;
+            })();
             var balColor = avgBal === null ? "#555" : avgBal < 0 ? "#4caf7d" : "#e05050";
             var protColor = avgProt === null ? "#555" : avgProt >= 170 ? "#4caf7d" : avgProt >= 150 ? "#e8a040" : "#e05050";
-
             return (
               <div>
-                
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 14 }}>
                   <div style={{ background: tabBg, borderRadius: 8, padding: "8px 10px", textAlign: "center", border: "1px solid " + tabColor + "22" }}>
                     <div style={{ fontSize: 17, fontWeight: 700, color: balColor, lineHeight: 1.1 }}>{avgBal !== null ? (avgBal > 0 ? "+" : "") + avgBal + " kcal" : "—"}</div>
-                    <div style={{ fontSize: 9, color: "#444", marginTop: 3 }}>avg balance</div>
+                    <div style={{ fontSize: 9, color: "#444", marginTop: 3, textTransform: "uppercase", letterSpacing: ".04em" }}>avg balance</div>
                   </div>
                   <div style={{ background: tabBg, borderRadius: 8, padding: "8px 10px", textAlign: "center", border: "1px solid " + tabColor + "22" }}>
                     <div style={{ fontSize: 17, fontWeight: 700, color: protColor, lineHeight: 1.1 }}>{avgProt !== null ? avgProt + "g" : "—"}</div>
-                    <div style={{ fontSize: 9, color: "#444", marginTop: 3 }}>avg protein</div>
+                    <div style={{ fontSize: 9, color: "#444", marginTop: 3, textTransform: "uppercase", letterSpacing: ".04em" }}>avg protein</div>
                   </div>
                   <div style={{ background: tabBg, borderRadius: 8, padding: "8px 10px", textAlign: "center", border: "1px solid " + tabColor + "22" }}>
                     <div style={{ fontSize: 17, fontWeight: 700, color: "#f0ede8", lineHeight: 1.1 }}>{sessCount}</div>
-                    <div style={{ fontSize: 9, color: "#444", marginTop: 3 }}>sessions</div>
+                    <div style={{ fontSize: 9, color: "#444", marginTop: 3, textTransform: "uppercase", letterSpacing: ".04em" }}>sessions</div>
                   </div>
                   <div style={{ background: tabBg, borderRadius: 8, padding: "8px 10px", textAlign: "center", border: "1px solid " + tabColor + "22" }}>
-                    <div style={{ fontSize: 17, fontWeight: 700, color: "#f0ede8", lineHeight: 1.1 }}>{latestWeight !== null ? latestWeight + " kg" : "—"}{latestBf !== null ? <span style={{ fontSize: 11, color: "#555", fontWeight: 400 }}> · {latestBf}%</span> : null}</div>
-                    <div style={{ fontSize: 9, color: "#444", marginTop: 3 }}>weight · bf%</div>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: "#f0ede8", lineHeight: 1.1 }}>{latestOmron ? latestOmron.bodyweight + " kg" : "—"}{latestOmron ? <span style={{ fontSize: 11, color: "#555", fontWeight: 400 }}> · {latestOmron.body_fat}%</span> : null}</div>
+                    <div style={{ fontSize: 9, color: "#444", marginTop: 3, textTransform: "uppercase", letterSpacing: ".04em" }}>weight · bf%</div>
                   </div>
                 </div>
-
-                
-                <div style={{ marginBottom: 4 }}>
-                  <div style={{ fontSize: 10, color: "#444", fontWeight: 600, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 6 }}>Energy balance</div>
-                  <svg width="100%" height="88" viewBox={"0 0 " + chartW + " 88"} preserveAspectRatio="none" overflow="visible">
-                    
-                    <line x1="0" y1={midY} x2={chartW} y2={midY} stroke="#2a2a2a" strokeWidth="1" />
-                    
-                    {pts.filter(function(p){return p.hasData;}).map(function(p, i) {
-                      var isDeficit = p.v < 0;
-                      return <line key={i} x1={p.x} y1={Math.min(p.y, midY)} x2={p.x} y2={Math.max(p.y, midY)}
-                        stroke={isDeficit ? "#4caf7d" : "#e05050"} strokeWidth="2" strokeOpacity="0.3" />;
-                    })}
-                    
-                    {polyline && <polyline points={polyline} fill="none" stroke={tabColor} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />}
-                    
-                    {pts.map(function(p, i) {
-                      if (!p.hasData) return null;
-                      var isDeficit = p.v < 0;
-                      return <circle key={i} cx={p.x} cy={p.y} r="4" fill={isDeficit ? "#4caf7d" : "#e05050"} stroke="#1c1c1c" strokeWidth="1.5" />;
-                    })}
-                    
-                    {days7.map(function(iso, i) {
-                      if (!hasSess(iso)) return null;
-                      var x = (i/6)*chartW;
-                      return <rect key={i} x={x-8} y={chartH+2} width={16} height={4} rx="2" fill={tabColor} opacity="0.6" />;
-                    })}
-                    
-                    {labels.map(function(lbl, i) {
-                      var x = (i/6)*chartW;
-                      return <text key={i} x={x} y={chartH+16} textAnchor="middle" fontSize="9" fill="#444">{lbl}</text>;
-                    })}
-                  </svg>
-                </div>
-                <div style={{ display: "flex", gap: 12, marginTop: 2 }}>
-                  <span style={{ fontSize: 9, color: "#4caf7d" }}>● Deficit</span>
-                  <span style={{ fontSize: 9, color: "#e05050" }}>● Surplus</span>
-                  <span style={{ fontSize: 9, color: tabColor }}>— Balance line</span>
-                  <span style={{ fontSize: 9, color: tabColor, opacity: 0.6 }}>▬ Session</span>
-                </div>
-                <div style={{ marginTop: 14 }}>
-                  <ActionBtn secondary onClick={handleWeeklyReport} disabled={reportLoading} tabColor={tabColor}>{reportLoading ? "Generating..." : "Generate weekly report"}</ActionBtn>
-                  {reportErr && <div style={{ fontSize: 12, color: "#e05050", marginTop: 6 }}>{reportErr}</div>}
-                  {weeklyReport && <div style={{ fontSize: 13, color: "#888", background: "#161616", borderRadius: 8, padding: 12, marginTop: 8, lineHeight: 1.6, border: "1px solid #222" }}>{weeklyReport}</div>}
+                <div style={{ fontSize: 10, color: "#444", fontWeight: 600, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 8 }}>Energy balance</div>
+                <div style={{ position: "relative", width: "100%", height: 110 }}>
+                  <canvas id="eb-chart-7d" />
                 </div>
               </div>
             );
           })()}
+        </div>
+      </Card>
+      <Card>
+        <CardHdr color={tabColor} left="Weight Trends" right={<span style={{ fontSize: 11, color: "#555" }}>6 weeks</span>} />
+        <div style={{ padding: 14 }}>
+          <div id="wt-selector" style={{ display: "flex", gap: 6, marginBottom: 12 }}></div>
+          <div style={{ position: "relative", width: "100%", height: 150 }}>
+            <canvas id="wt-chart-6w" />
+          </div>
+          <div id="wt-stats" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 14 }}></div>
         </div>
       </Card>
     </div>
@@ -1604,7 +1561,7 @@ async function upsertDailySummaryForDate(date) {
         </div>
       </div>
       <div style={{ padding: "0 12px 12px" }}>
-      {tab === "dashboard" && <Dashboard config={config} todayLogs={todayLogs} calGoal={calGoal} carbGoal={carbGoal} fatGoal={fatGoal} isTrainingDay={isTrainingDay} weekSessions={weekSessions} weeklyRow={weeklyRow} onTabChange={setTab} weeklySummaryLogs={weeklySummaryLogs} activities={activities} allSessions={allSessions} dailySummaryLogs={dailySummaryLogs} tabColor={tabColor} tabBg={tabBg} />}      {tab === "nutrition" && <NutritionTab config={config} todayLogs={todayLogs} onAddMeal={handleAddMeal} onDeleteMeal={handleDeleteMeal} isTrainingDay={isTrainingDay} calOverride={calOverrideToday}  tabColor={tabColor} tabBg={tabBg} />}
+      {tab === "dashboard" && <Dashboard config={config} todayLogs={todayLogs} calGoal={calGoal} carbGoal={carbGoal} fatGoal={fatGoal} isTrainingDay={isTrainingDay} weekSessions={weekSessions} weeklyRow={weeklyRow} onTabChange={setTab} weeklySummaryLogs={weeklySummaryLogs} activities={activities} allSessions={allSessions} dailySummaryLogs={dailySummaryLogs} omronLogs={omronLogs} tabColor={tabColor} tabBg={tabBg} />}      {tab === "nutrition" && <NutritionTab config={config} todayLogs={todayLogs} onAddMeal={handleAddMeal} onDeleteMeal={handleDeleteMeal} isTrainingDay={isTrainingDay} calOverride={calOverrideToday}  tabColor={tabColor} tabBg={tabBg} />}
       {tab === "training" && <TrainingTab config={config} onSessionSaved={handleSessionSaved} lastSessionSets={lastSessionSets}  tabColor={tabColor} tabBg={tabBg} />}
       {tab === "calendar" && <CalendarTab config={config} burnLogs={burnLogs} onSaveBurn={handleSaveBurn} weekSessions={weekSessions} allSessions={allSessions} activities={activities} omronLogs={omronLogs} onSaveOmron={handleSaveOmron} dailySummaryLogs={dailySummaryLogs} weeklySummaryLogs={weeklySummaryLogs}  tabColor={tabColor} tabBg={tabBg} />}
       {showSettings && <SettingsPanel config={config} onSave={handleConfigSave} onClose={function() { setShowSettings(false); }} onPatch={handlePatch} />}
@@ -1628,5 +1585,171 @@ async function upsertDailySummaryForDate(date) {
 
 ReactDOM.render(<App />, document.getElementById("root"));
 </script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+window.__ebChartInst = null;
+window.__initEbChart = function(labels, vals) {
+  var canvas = document.getElementById("eb-chart-7d");
+  if (!canvas) return;
+  if (window.__ebChartInst) { window.__ebChartInst.destroy(); window.__ebChartInst = null; }
+  window.__ebChartInst = new Chart(canvas, {
+    type: "bar",
+    data: { labels: labels, datasets: [{ data: vals,
+      backgroundColor: vals.map(function(v) { return v === null ? "transparent" : v < 0 ? "#4caf7d33" : "#e0505033"; }),
+      borderColor: vals.map(function(v) { return v === null ? "transparent" : v < 0 ? "#4caf7d" : "#e05050"; }),
+      borderWidth: { top: 2, bottom: 0, left: 0, right: 0 },
+      borderRadius: { topLeft: 2, topRight: 2, bottomLeft: 0, bottomRight: 0 },
+      borderSkipped: false, barPercentage: 1.0, categoryPercentage: 1.0
+    }]},
+    options: { responsive: true, maintainAspectRatio: false, animation: false,
+      plugins: { legend: { display: false }, tooltip: { backgroundColor: "#161616", borderColor: "#2a2a2a", borderWidth: 1, titleColor: "#f0ede8", bodyColor: "#888", padding: 8,
+        callbacks: { label: function(ctx) { return ctx.raw === null ? "No data" : (ctx.raw >= 0 ? "+" : "") + ctx.raw + " kcal"; } } } },
+      scales: {
+        x: { grid: { display: false }, border: { display: false }, ticks: { color: "#555", font: { size: 11 }, padding: 4 } },
+        y: { position: "right",
+          grid: { color: function(c) { return c.tick.value === 0 ? "#444" : "#222"; }, lineWidth: function(c) { return c.tick.value === 0 ? 1.5 : 0.5; } },
+          border: { display: false },
+          ticks: { color: "#444", font: { size: 10 }, padding: 6, maxTicksLimit: 5, callback: function(v) { return (v > 0 ? "+" : "") + v; } }
+        }
+      }, layout: { padding: { top: 6 } }
+    }
+  });
+};
+
+window.__wtState = { w: true, f: true, l: true };
+window.__wtChartInst = null;
+window.__wtOmronLogs = {};
+
+window.__initWtChart = function(omronLogs) {
+  window.__wtOmronLogs = omronLogs || {};
+  var C = { w: "#5bb8d4", f: "#e07060", l: "#7ab58a" };
+  var BG = { w: "#071820", f: "#1e0e0a", l: "#0a1a10" };
+  var BTN = { w: "Weight", f: "Fat", l: "Lean" };
+
+  var today = new Date();
+  var weeks = [];
+  for (var i = 5; i >= 0; i--) {
+    var d = new Date(today); d.setDate(d.getDate() - i * 7);
+    var iso = d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+    weeks.push(iso);
+  }
+
+  var wt = [], bf = [];
+  weeks.forEach(function(iso) {
+    var row = omronLogs[iso] || null;
+    if (!row) {
+      var closest = null, minDiff = 999;
+      Object.keys(omronLogs).forEach(function(k) {
+        var diff = Math.abs((new Date(iso)) - (new Date(k))) / 86400000;
+        if (diff < minDiff && diff < 4) { minDiff = diff; closest = omronLogs[k]; }
+      });
+      row = closest;
+    }
+    wt.push(row ? Math.round(row.bodyweight * 10) / 10 : null);
+    bf.push(row ? Math.round(row.body_fat * 10) / 10 : null);
+  });
+
+  var hasData = wt.some(function(v) { return v !== null; });
+  var baseWt = wt.find(function(v) { return v !== null; }) || 0;
+  var baseBf = bf.find(function(v) { return v !== null; }) || 0;
+
+  var lm = wt.map(function(w, i) { return w !== null && bf[i] !== null ? Math.round(w * (1 - bf[i]/100) * 10) / 10 : null; });
+  var fm = wt.map(function(w, i) { return w !== null && bf[i] !== null ? Math.round(w * (bf[i]/100) * 10) / 10 : null; });
+
+  function toDeltas(arr) {
+    var base = arr.find(function(v) { return v !== null; });
+    if (base == null) return arr;
+    return arr.map(function(v) { return v !== null ? Math.round((v - base) * 100) / 100 : null; });
+  }
+  var DATA = { w: toDeltas(wt), f: toDeltas(fm), l: toDeltas(lm) };
+  var LABEL = { w: "Weight", f: "Fat mass", l: "Lean mass" };
+  var wkLabels = weeks.map(function(iso, i) { return "W" + (i+1); });
+
+  function buildDatasets() {
+    return ["w","f","l"].filter(function(k) { return window.__wtState[k]; }).map(function(k) {
+      return { label: LABEL[k], data: DATA[k], yAxisID: "y", borderColor: C[k], borderWidth: 2.5,
+        pointBackgroundColor: C[k], pointBorderColor: "#1c1c1c", pointBorderWidth: 2,
+        pointRadius: 4, pointHoverRadius: 6, tension: 0.3, fill: false, spanGaps: true };
+    });
+  }
+
+  function yRange() {
+    var all = [0];
+    ["w","f","l"].forEach(function(k) { if (window.__wtState[k]) DATA[k].forEach(function(v) { if (v !== null) all.push(v); }); });
+    var mn = Math.min.apply(null, all), mx = Math.max.apply(null, all);
+    var pad = Math.max((mx - mn) * 0.2, 0.3);
+    return { min: Math.floor((mn - pad) * 10) / 10, max: Math.ceil((mx + pad) * 10) / 10 };
+  }
+
+  function renderButtons() {
+    var sel = document.getElementById("wt-selector");
+    if (!sel) return;
+    sel.innerHTML = ["w","f","l"].map(function(k) {
+      var on = window.__wtState[k];
+      var style = on
+        ? "padding:6px 13px;border-radius:20px;border:1px solid "+C[k]+";background:"+BG[k]+";color:"+C[k]+";font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;"
+        : "padding:6px 13px;border-radius:20px;border:1px solid #2a2a2a;background:#161616;color:#555;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;";
+      return '<button style="'+style+'" onclick="window.__wtToggle(''+k+'')">'+BTN[k]+'</button>';
+    }).join("");
+  }
+
+  function renderStats() {
+    var el = document.getElementById("wt-stats");
+    if (!el || !hasData) return;
+    var wtArr = wt.filter(function(v){ return v!==null; });
+    var fmArr = fm.filter(function(v){ return v!==null; });
+    var lmArr = lm.filter(function(v){ return v!==null; });
+    if (!wtArr.length) return;
+    var n = wtArr.length - 1 || 1;
+    var fatPerWk = (fmArr[0] - fmArr[fmArr.length-1]) / n;
+    var leanPerWk = (lmArr[lmArr.length-1] - lmArr[0]) / n;
+    var totalFatLost = fmArr[0] - fmArr[fmArr.length-1];
+    var totalWtLost = wtArr[0] - wtArr[wtArr.length-1];
+    var leanRet = totalWtLost > 0 ? Math.round(totalFatLost / totalWtLost * 100) : 100;
+    function chip(val, lbl, color) {
+      return '<div style="background:#161616;border:1px solid #222;border-radius:8px;padding:8px 10px;text-align:center;"><div style="font-size:15px;font-weight:700;color:'+color+';line-height:1.1">'+val+'</div><div style="font-size:9px;color:#444;margin-top:3px;text-transform:uppercase;letter-spacing:.04em">'+lbl+'</div></div>';
+    }
+    el.innerHTML =
+      chip(fatPerWk.toFixed(2)+" kg", "fat / week", fatPerWk > 0 ? "#4caf7d" : "#e05050") +
+      chip((leanPerWk >= 0 ? "+" : "") + leanPerWk.toFixed(2)+" kg", "lean / week", leanPerWk >= -0.05 ? "#4caf7d" : "#e07060") +
+      chip(totalFatLost.toFixed(1)+" kg", "total fat lost", "#e07060") +
+      chip(leanRet+"%", "lean retained", leanRet >= 80 ? "#4caf7d" : leanRet >= 60 ? "#e8a040" : "#e05050");
+  }
+
+  var canvas = document.getElementById("wt-chart-6w");
+  if (!canvas) return;
+  if (window.__wtChartInst) { window.__wtChartInst.destroy(); window.__wtChartInst = null; }
+  var r = yRange();
+  window.__wtChartInst = new Chart(canvas, {
+    type: "line", data: { labels: wkLabels, datasets: buildDatasets() },
+    options: { responsive: true, maintainAspectRatio: false, animation: false,
+      interaction: { mode: "index", intersect: false },
+      plugins: { legend: { display: false }, tooltip: { backgroundColor: "#161616", borderColor: "#2a2a2a", borderWidth: 1, titleColor: "#f0ede8", bodyColor: "#888", padding: 8,
+        callbacks: { label: function(ctx) { var v = ctx.raw; return v === null ? "No data" : ctx.dataset.label + ": " + (v >= 0 ? "+" : "") + v.toFixed(2) + " kg"; } } } },
+      scales: {
+        x: { grid: { display: false }, border: { display: false }, ticks: { color: "#555", font: { size: 11 }, padding: 4 } },
+        y: { position: "left", min: r.min, max: r.max,
+          grid: { color: function(c) { return c.tick.value === 0 ? "#444" : "#1e1e1e"; }, lineWidth: function(c) { return c.tick.value === 0 ? 1.5 : 0.5; } },
+          border: { display: false },
+          ticks: { color: "#555", font: { size: 10 }, padding: 4, maxTicksLimit: 6, callback: function(v) { return (v >= 0 ? "+" : "") + v.toFixed(1) + " kg"; } }
+        }
+      }, layout: { padding: { top: 8 } }
+    }
+  });
+
+  window.__wtToggle = function(k) {
+    window.__wtState[k] = !window.__wtState[k];
+    var r2 = yRange();
+    window.__wtChartInst.options.scales.y.min = r2.min;
+    window.__wtChartInst.options.scales.y.max = r2.max;
+    window.__wtChartInst.data.datasets = buildDatasets();
+    window.__wtChartInst.update();
+    renderButtons();
+  };
+
+  renderButtons();
+  renderStats();
+};
 </body>
 </html>
